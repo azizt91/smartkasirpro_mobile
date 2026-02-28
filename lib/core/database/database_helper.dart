@@ -20,7 +20,7 @@ class DatabaseHelper {
       // Web Support
       var databaseFactory = databaseFactoryFfiWeb;
       return await databaseFactory.openDatabase(filePath, options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
       ));
@@ -31,7 +31,7 @@ class DatabaseHelper {
 
       return await openDatabase(
         path, 
-        version: 2, 
+        version: 3, 
         onCreate: _createDB,
         onUpgrade: _onUpgrade,
       );
@@ -41,6 +41,11 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute("ALTER TABLE transactions ADD COLUMN status TEXT DEFAULT 'completed'");
+    }
+    if (oldVersion < 3) {
+      await db.execute("ALTER TABLE products ADD COLUMN type TEXT DEFAULT 'barang'");
+      await db.execute("ALTER TABLE products ADD COLUMN commission_type TEXT");
+      await db.execute("ALTER TABLE products ADD COLUMN commission_amount REAL DEFAULT 0");
     }
   }
 
@@ -91,6 +96,9 @@ class DatabaseHelper {
         minimum_stock $intType,
         image $textType,
         description $textType,
+        type $textType DEFAULT 'barang',
+        commission_type $textType,
+        commission_amount $realType DEFAULT 0,
         is_low_stock $boolType,
         created_at $textType,
         updated_at $textType,
