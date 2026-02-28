@@ -7,6 +7,7 @@ import '../bloc/pos_bloc.dart';
 import 'package:mobile_app/features/product/data/models/product_model.dart';
 import 'package:mobile_app/features/product/data/models/category_model.dart';
 import '../../../../core/utils/receipt_builder.dart'; // Import
+import '../widgets/payment_pending_dialog.dart'; // PG Dialog
 import '../../../../core/services/printer_service.dart'; // Import
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -300,7 +301,11 @@ class PosView extends StatelessWidget {
         if (isGroup) {
           _showVariantPicker(context, displayName, product.image, variants!);
         } else {
-          context.read<PosBloc>().add(AddToCart(product));
+          if (product.type == 'jasa') {
+             _showEmployeePicker(context, product);
+          } else {
+             context.read<PosBloc>().add(AddToCart(product));
+          }
         }
       },
       child: Container(
@@ -452,54 +457,78 @@ class PosView extends StatelessWidget {
     return BlocListener<PosBloc, PosState>(
       listener: (context, state) {
         if (state.isSuccess) {
-          // Show Success Dialog with Print Option
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => SuccessDialog(
-              onPrint: () async {
-                 final lastTransaction = state.lastTransaction;
-                 if (lastTransaction != null) {
-                    final receiptBuilder = ReceiptBuilder();
-                    
-                    // Get Settings from AuthBloc
-                    final authState = context.read<AuthBloc>().state;
-                    Map<String, dynamic> settings = {};
-                    String userName = 'Kasir';
-                    
-                    if (authState is AuthAuthenticated) {
-                       settings = authState.user.settings;
-                       userName = authState.user.name;
-                    }
+          final lastTransaction = state.lastTransaction;
 
-                    // Enriched items
-                    final items = lastTransaction['items'] as List<dynamic>;
-                    
-                    // Add username to transaction data for printer
-                    final printData = Map<String, dynamic>.from(lastTransaction);
-                    printData['user_name'] = userName;
+          // Check if this is a Payment Gateway (pending) transaction
+          if (lastTransaction != null && lastTransaction['payment'] != null) {
+            // Show Payment Pending Dialog instead of Success Dialog
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => PaymentPendingDialog(
+                transaction: lastTransaction,
+                payment: Map<String, dynamic>.from(lastTransaction['payment']),
+                onDismiss: () {
+                  Navigator.pop(context);
+                  context.read<PosBloc>().add(ClearCart());
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Transaksi pending. Status akan otomatis berubah saat pelanggan membayar.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                },
+              ),
+            );
+          } else {
+            // Normal cash/card/utang: show Success Dialog with Print Option
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => SuccessDialog(
+                onPrint: () async {
+                   if (lastTransaction != null) {
+                      final receiptBuilder = ReceiptBuilder();
+                      
+                      // Get Settings from AuthBloc
+                      final authState = context.read<AuthBloc>().state;
+                      Map<String, dynamic> settings = {};
+                      String userName = 'Kasir';
+                      
+                      if (authState is AuthAuthenticated) {
+                         settings = authState.user.settings;
+                         userName = authState.user.name;
+                      }
 
-                    try {
-                        await receiptBuilder.printReceipt(printData, settings, items);
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text('Sedang mencetak...')),
-                         );
-                    } catch (e) {
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           SnackBar(content: Text('Gagal mencetak: $e')),
-                         );
-                    }
-                 }
-                 
-                 Navigator.pop(context); // Close dialog
-                 context.read<PosBloc>().add(ClearCart()); 
-              },
-              onClose: () {
-                 Navigator.pop(context); // Close dialog
-                 context.read<PosBloc>().add(ClearCart()); 
-              },
-            ),
-          );
+                      // Enriched items
+                      final items = lastTransaction['items'] as List<dynamic>;
+                      
+                      // Add username to transaction data for printer
+                      final printData = Map<String, dynamic>.from(lastTransaction);
+                      printData['user_name'] = userName;
+
+                      try {
+                          await receiptBuilder.printReceipt(printData, settings, items);
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             const SnackBar(content: Text('Sedang mencetak...')),
+                           );
+                      } catch (e) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             SnackBar(content: Text('Gagal mencetak: $e')),
+                           );
+                      }
+                   }
+                   
+                   Navigator.pop(context); // Close dialog
+                   context.read<PosBloc>().add(ClearCart()); 
+                },
+                onClose: () {
+                   Navigator.pop(context); // Close dialog
+                   context.read<PosBloc>().add(ClearCart()); 
+                },
+              ),
+            );
+          }
         }
         if (state.error != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -633,11 +662,66 @@ class PosView extends StatelessWidget {
             // Already in cart — update quantity
             context.read<PosBloc>().add(UpdateCartQuanity(variant, newQty));
           } else if (newQty > 0) {
-            // Not in cart yet — add with specified quantity
-            context.read<PosBloc>().add(AddToCart(variant, quantity: newQty));
+            // Not in cart yet — check if jasa
+            if (variant.type == 'jasa') {
+               Navigator.pop(context); // Close variant picker to show employee picker
+               _showEmployeePicker(context, variant);
+            } else {
+               context.read<PosBloc>().add(AddToCart(variant, quantity: newQty));
+            }
           }
         },
       ),
+    );
+  }
+
+  void _showEmployeePicker(BuildContext context, ProductModel product) {
+    // Dynamic Label
+    final authState = context.read<AuthBloc>().state;
+    String employeeLabel = 'Pegawai';
+    if (authState is AuthAuthenticated) {
+       employeeLabel = authState.user.settings['employee_label'] ?? 'Pegawai';
+    }
+
+    final posState = context.read<PosBloc>().state;
+    final List<Map<String, dynamic>> realEmployees = posState.employees;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+         return Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+               mainAxisSize: MainAxisSize.min,
+               children: [
+                  Text('Pilih $employeeLabel', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  if (realEmployees.isEmpty)
+                     const Padding(
+                       padding: EdgeInsets.all(16.0),
+                       child: Text('Belum ada data pegawai.', style: TextStyle(color: Colors.grey)),
+                     )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                         itemCount: realEmployees.length,
+                         itemBuilder: (ctx, idx) {
+                            final emp = realEmployees[idx];
+                            return ListTile(
+                               leading: const CircleAvatar(child: Icon(Icons.person)),
+                               title: Text(emp['name'] ?? 'Unknown'),
+                               onTap: () {
+                                  context.read<PosBloc>().add(AddToCart(product, employeeId: emp['id'], employeeName: emp['name']));
+                                  Navigator.pop(context);
+                               },
+                            );
+                         },
+                      ),
+                    )
+               ],
+            ),
+         );
+      }
     );
   }
 }

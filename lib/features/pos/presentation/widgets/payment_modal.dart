@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_app/features/pos/data/models/customer_model.dart'; // Import
 import '../bloc/pos_bloc.dart';
 
@@ -22,6 +23,12 @@ class _PaymentModalState extends State<PaymentModal> {
 
   DateTime _selectedDate = DateTime.now();
   CustomerModel? _selectedCustomer; // Null means "Umum"
+  
+  // Points logic
+  bool _usePoints = false;
+  int _pointsToRedeem = 0;
+  int _pointExchangeRate = 100; // Will be updated from settings.
+  bool _loyaltyPointsEnabled = true;
 
   @override
   void initState() {
@@ -33,6 +40,19 @@ class _PaymentModalState extends State<PaymentModal> {
        WidgetsBinding.instance.addPostFrameCallback((_) {
          _amountFocusNode.requestFocus();
        });
+    }
+
+    // Init Exchange Rate & Master Switch
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+        final s = authState.user.settings;
+        if (s['point_exchange_rate'] != null) {
+            _pointExchangeRate = int.tryParse(s['point_exchange_rate'].toString()) ?? 100;
+        }
+        if (s['enable_loyalty_points'] != null) {
+            final enablePoints = s['enable_loyalty_points'];
+            _loyaltyPointsEnabled = enablePoints == true || enablePoints == 'true' || enablePoints == 1 || enablePoints == '1';
+        }
     }
   }
 
@@ -80,7 +100,7 @@ class _PaymentModalState extends State<PaymentModal> {
       String cleanText = _amountPaidController.text.replaceAll(RegExp(r'[^0-9]'), '');
       final paid = double.tryParse(cleanText) ?? 0;
       setState(() {
-          _change = paid - _totalRounded;
+          _change = paid - _finalTotal;
       });
   }
 
@@ -93,8 +113,14 @@ class _PaymentModalState extends State<PaymentModal> {
   }
 
   void _setExactAmount() {
-     _amountPaidController.text = _totalRounded.toInt().toString();
+     _amountPaidController.text = _finalTotal.toInt().toString();
      _calculateChange();
+  }
+
+  // Points mathematical property
+  double get _finalTotal {
+     double discount = _usePoints ? (_pointsToRedeem * _pointExchangeRate).toDouble() : 0.0;
+     return _totalRounded - discount;
   }
 
 
@@ -142,11 +168,22 @@ class _PaymentModalState extends State<PaymentModal> {
                             ]
                           ),
                           child: Text(
-                            currencyFormatter.format(_totalRounded.toInt()),
+                            currencyFormatter.format(_finalTotal.toInt()),
                             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF2D3436), letterSpacing: -0.5),
                           ),
                         ),
                       ),
+                      
+                      // Points Info Text if Used
+                      if (_usePoints && _pointsToRedeem > 0)
+                         Padding(
+                           padding: const EdgeInsets.only(top: 8.0),
+                           child: Text(
+                             'Diskon Poin: -${currencyFormatter.format(_pointsToRedeem * _pointExchangeRate)}',
+                             style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 14),
+                           ),
+                         ),
+
                       const SizedBox(height: 32),
 
                       // Payment Methods Grid
@@ -232,6 +269,53 @@ class _PaymentModalState extends State<PaymentModal> {
                           ],
                         ),
                       ),
+                      
+                      const SizedBox(height: 12),
+                      
+                      // Loyalty Points Section
+                      if (_loyaltyPointsEnabled && _selectedCustomer != null && _selectedCustomer!.points > 0)
+                         Container(
+                           padding: const EdgeInsets.all(16),
+                           decoration: BoxDecoration(
+                             color: Colors.orange.shade50,
+                             borderRadius: BorderRadius.circular(16),
+                             border: Border.all(color: Colors.orange.shade200),
+                           ),
+                           child: Row(
+                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                             children: [
+                               Expanded(
+                                 child: Column(
+                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                   children: [
+                                     const Text('Gunakan Poin Membership', style: TextStyle(fontWeight: FontWeight.bold)),
+                                     Text('Anda Punya ${_selectedCustomer!.points} Poin = ${currencyFormatter.format(_selectedCustomer!.points * _pointExchangeRate)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                   ],
+                                 ),
+                               ),
+                               Switch(
+                                 value: _usePoints,
+                                 activeColor: Colors.orange,
+                                 onChanged: (val) {
+                                     setState(() {
+                                        _usePoints = val;
+                                        if (val) {
+                                            // calc max points usable
+                                            final maxPointsNeeded = (_totalRounded / _pointExchangeRate).ceil();
+                                            _pointsToRedeem = _selectedCustomer!.points < maxPointsNeeded 
+                                               ? _selectedCustomer!.points 
+                                               : maxPointsNeeded;
+                                        } else {
+                                            _pointsToRedeem = 0;
+                                        }
+                                        _calculateChange();
+                                     });
+                                 }
+                               ),
+                             ],
+                           ),
+                         ),
+
                       const SizedBox(height: 24),
 
 
@@ -344,8 +428,7 @@ class _PaymentModalState extends State<PaymentModal> {
                           }
 
                           // Validation: Prevent Underpayment for Non-Utang
-                          // Fix: Use ceil() to compare integer input against double total
-                          if (_selectedPaymentMethod != 'utang' && paid < _totalRounded) {
+                          if (_selectedPaymentMethod != 'utang' && paid < _finalTotal) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Nominal pembayaran kurang!'),
@@ -356,7 +439,7 @@ class _PaymentModalState extends State<PaymentModal> {
                           }
 
                           // Validation: Prevent Overpayment for Utang (Optional, but logical)
-                          if (_selectedPaymentMethod == 'utang' && paid > _totalRounded) {
+                          if (_selectedPaymentMethod == 'utang' && paid > _finalTotal) {
                              ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Nominal DP tidak boleh melebihi total tagihan!'),
@@ -370,7 +453,10 @@ class _PaymentModalState extends State<PaymentModal> {
                                paymentMethod: _selectedPaymentMethod,
                                amountPaid: paid,
                                customerName: _selectedCustomer?.name, // Pass selected customer name
+                               customerId: _selectedCustomer?.id, // Pass selected customer ID
                                transactionDate: _selectedDate, // Pass selected date
+                               pointsRedeemed: _usePoints ? _pointsToRedeem : 0, // NEW
+                               pointExchangeRate: _pointExchangeRate,
                           ));
                           Navigator.pop(context); // Close Payment Modal
                       },

@@ -4,6 +4,7 @@ class CustomerModel {
   final String? phone;
   final String? email;
   final String? address;
+  final int points;
 
   CustomerModel({
     required this.id,
@@ -20,6 +21,7 @@ class CustomerModel {
       phone: json['phone'],
       email: json['email'],
       address: json['address'],
+      points: json['points'] != null ? int.tryParse(json['points'].toString()) ?? 0 : 0,
     );
   }
 
@@ -30,6 +32,7 @@ class CustomerModel {
       'phone': phone,
       'email': email,
       'address': address,
+      'points': points,
     };
   }
 }

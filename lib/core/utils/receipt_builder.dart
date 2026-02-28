@@ -69,6 +69,13 @@ class ReceiptBuilder {
       for (var item in items) {
          final name = item['product_name'] ?? (item['product']?['name'] ?? 'Unknown Product');
          await bluetooth.printCustom(name, 0, 0); // Changed to Size 0 for consistency
+         
+         // 🔥 NEW: Jasa Employee Info
+         if (item['employee_name'] != null) {
+            final String employeeLabel = settings['employee_label'] ?? 'Pegawai';
+            await bluetooth.printCustom("  ($employeeLabel: ${item['employee_name']})", 0, 0);
+         }
+
          // Qty x Price ... Subtotal
          final qty = item['quantity'];
          final double priceVal = _parseDouble(item['price']);
@@ -79,15 +86,24 @@ class ReceiptBuilder {
          await bluetooth.printLeftRight("$qty x $price", subtotal, 0);
       }
       
-      await bluetooth.printCustom("--------------------------------", 1, 1);
+      await bluetooth.printCustom(divider, 0, 1);
+      
+      // Totals
+      final double totalAmount = _parseDouble(transaction['total_amount']);
+      final double pointDiscount = transaction['points_discount_amount'] != null ? _parseDouble(transaction['points_discount_amount']) : 0;
+      final double totalAkhir = totalAmount - pointDiscount;
 
-      // Summary
-      await bluetooth.printLeftRight("Total :", currencyFormatter.format(_parseDouble(transaction['total_amount'])), 0); // Changed to size 0
+      if (pointDiscount > 0) {
+          await bluetooth.printLeftRight("Total Awal :", currencyFormatter.format(totalAmount), 0);
+          await bluetooth.printLeftRight("Potongan Poin :", "-${currencyFormatter.format(pointDiscount)}", 0);
+          await bluetooth.printLeftRight("Total Akhir :", currencyFormatter.format(totalAkhir), 0);
+      } else {
+          await bluetooth.printLeftRight("Total :", currencyFormatter.format(totalAmount), 0);
+      }
       
-      // Payment
-      String paymentMethod = transaction['payment_method'] ?? 'cash';
-      await bluetooth.printLeftRight("Bayar ($paymentMethod) :", currencyFormatter.format(_parseDouble(transaction['amount_paid'])), 0);
-      
+      final paymentMethod = transaction['payment_method'] ?? 'cash';
+      await bluetooth.printLeftRight("Bayar (${paymentMethod.toUpperCase()}) :", currencyFormatter.format(_parseDouble(transaction['amount_paid'])), 0);
+
       if (paymentMethod == 'utang') {
          await bluetooth.printCustom("** BELUM LUNAS - PIUTANG **", 1, 1);
       } else {
@@ -95,6 +111,18 @@ class ReceiptBuilder {
       }
 
       await bluetooth.printNewLine();
+
+      // 🔥 NEW: Points Information
+      bool loyaltyEnabled = true;
+      if (settings['enable_loyalty_points'] != null) {
+          final sVal = settings['enable_loyalty_points'];
+          loyaltyEnabled = sVal == true || sVal == 'true' || sVal == 1 || sVal == '1';
+      }
+
+      if (loyaltyEnabled && transaction['points_earned'] != null && _parseDouble(transaction['points_earned']) > 0) {
+         await bluetooth.printLeftRight("Poin Didapat :", "${_parseDouble(transaction['points_earned']).toInt()}", 0);
+         await bluetooth.printNewLine();
+      }
       // Footer — use store_description from settings
       final storeDescription = settings['store_description'] ?? '';
       if (storeDescription.toString().isNotEmpty) {

@@ -24,9 +24,12 @@ class FilterProducts extends PosEvent {
 class AddToCart extends PosEvent {
   final ProductModel product;
   final int quantity;
-  AddToCart(this.product, {this.quantity = 1});
+  final int? employeeId;
+  final String? employeeName;
+
+  AddToCart(this.product, {this.quantity = 1, this.employeeId, this.employeeName});
   @override
-  List<Object> get props => [product, quantity];
+  List<Object> get props => [product, quantity, employeeId ?? -1, employeeName ?? ''];
 }
 class UpdateCartQuanity extends PosEvent {
   final ProductModel product;
@@ -46,19 +49,25 @@ class SubmitTransaction extends PosEvent {
   final String paymentMethod;
   final double amountPaid;
   final String? customerName;
+  final int? customerId; // NEW
   final String? note;
-  final DateTime? transactionDate; // (NEW)
+  final DateTime? transactionDate;
+  final int? pointsRedeemed;
+  final int? pointExchangeRate;
 
   SubmitTransaction({
     required this.paymentMethod, 
     required this.amountPaid,
     this.customerName,
+    this.customerId,
     this.note,
     this.transactionDate,
+    this.pointsRedeemed = 0,
+    this.pointExchangeRate = 100,
   });
   
   @override
-  List<Object> get props => [paymentMethod, amountPaid, customerName ?? '', note ?? '', transactionDate.toString()];
+  List<Object> get props => [paymentMethod, amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100];
 }
 
 class ScanBarcode extends PosEvent {
@@ -80,17 +89,29 @@ class AddCustomer extends PosEvent {
 class CartItem extends Equatable {
   final ProductModel product;
   final int quantity;
+  final int? employeeId;
+  final String? employeeName;
   
-  const CartItem({required this.product, required this.quantity});
+  const CartItem({
+    required this.product, 
+    required this.quantity,
+    this.employeeId,
+    this.employeeName,
+  });
   
   double get subtotal => product.sellingPrice * quantity;
 
-  CartItem copyWith({int? quantity}) {
-    return CartItem(product: product, quantity: quantity ?? this.quantity);
+  CartItem copyWith({int? quantity, int? employeeId, String? employeeName}) {
+    return CartItem(
+      product: product, 
+      quantity: quantity ?? this.quantity,
+      employeeId: employeeId ?? this.employeeId,
+      employeeName: employeeName ?? this.employeeName,
+    );
   }
 
   @override
-  List<Object> get props => [product, quantity];
+  List<Object> get props => [product, quantity, employeeId ?? -1, employeeName ?? ''];
 }
 
 class PosState extends Equatable {
@@ -98,6 +119,7 @@ class PosState extends Equatable {
   final List<ProductModel> filteredProducts;
   final List<CategoryModel> categories; 
   final List<CustomerModel> customers; 
+  final List<Map<String, dynamic>> employees; // NEW
   final List<CartItem> cartItems;
   final int selectedCategoryId; 
   final String searchQuery;
@@ -107,10 +129,10 @@ class PosState extends Equatable {
   final Map<String, dynamic>? lastTransaction; 
 
   const PosState({
-    this.allProducts = const [],
     this.filteredProducts = const [],
     this.categories = const [],
     this.customers = const [], 
+    this.employees = const [], // NEW
     this.cartItems = const [],
     this.selectedCategoryId = 0,
     this.searchQuery = '',
@@ -129,6 +151,7 @@ class PosState extends Equatable {
     List<ProductModel>? filteredProducts,
     List<CategoryModel>? categories,
     List<CustomerModel>? customers, 
+    List<Map<String, dynamic>>? employees, // NEW
     List<CartItem>? cartItems,
     int? selectedCategoryId,
     String? searchQuery,
@@ -142,6 +165,7 @@ class PosState extends Equatable {
       filteredProducts: filteredProducts ?? this.filteredProducts,
       categories: categories ?? this.categories,
       customers: customers ?? this.customers, 
+      employees: employees ?? this.employees,
       cartItems: cartItems ?? this.cartItems,
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -153,7 +177,7 @@ class PosState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [allProducts, filteredProducts, categories, customers, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction];
+  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction];
 }
 
 // Bloc
@@ -185,10 +209,12 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     final productsResult = await productRepository.getProducts();
     final categoriesResult = await productRepository.getCategories();
     final customersResult = await customerRepository.getCustomers(); // Fetch customers
+    final employeesResult = await customerRepository.getEmployees(); // Fetch employees
 
     final products = productsResult.getOrElse(() => []);
     final categories = categoriesResult.getOrElse(() => []);
     final customers = customersResult.getOrElse(() => []); // List<CustomerModel>
+    final employees = employeesResult.getOrElse(() => []); // List<Map<String,dynamic>>
     
     print('DEBUG: PosBloc Loaded ${customers.length} Customers');
     
@@ -198,6 +224,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       filteredProducts: products,
       categories: categories,
       customers: customers,
+      employees: employees,
       isSuccess: false, // Reset transient flags
       error: null,
     ));
@@ -223,14 +250,25 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   }
 
   void _onAddToCart(AddToCart event, Emitter<PosState> emit) {
-    final existingIndex = state.cartItems.indexWhere((item) => item.product.id == event.product.id);
+    // For services (jasa), we don't merge them purely by product ID if they might have different employees.
+    // However, if we simplify: identical product + identical employee = merge.
+    final existingIndex = state.cartItems.indexWhere((item) => 
+        item.product.id == event.product.id && 
+        item.employeeId == event.employeeId
+    );
+
     List<CartItem> newCart;
     if (existingIndex >= 0) {
       newCart = List.from(state.cartItems);
       final item = newCart[existingIndex];
       newCart[existingIndex] = item.copyWith(quantity: item.quantity + event.quantity);
     } else {
-      newCart = List.from(state.cartItems)..add(CartItem(product: event.product, quantity: event.quantity));
+      newCart = List.from(state.cartItems)..add(CartItem(
+        product: event.product, 
+        quantity: event.quantity,
+        employeeId: event.employeeId,
+        employeeName: event.employeeName,
+      ));
     }
     emit(state.copyWith(cartItems: newCart));
   }
@@ -266,7 +304,14 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         'quantity': item.quantity,
         'price': item.product.sellingPrice, 
         'subtotal': item.subtotal, 
+        'employee_id': item.employeeId,
+        'employee_name': item.employeeName,
       }).toList();
+
+    final int pointRxRate = event.pointExchangeRate ?? 100;
+    final double pointsDiscountAmount = (event.pointsRedeemed ?? 0) * pointRxRate.toDouble();
+    double newTotal = state.total - pointsDiscountAmount;
+    if (newTotal < 0) newTotal = 0;
 
     final transactionData = {
       'transaction_code': 'OFFLINE-${DateTime.now().millisecondsSinceEpoch}', 
@@ -274,8 +319,10 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       'payment_method': event.paymentMethod,
       'amount_paid': event.amountPaid,
       'customer_name': event.customerName,
-      'total_amount': state.total,
-      'change_amount': event.paymentMethod == 'utang' ? 0 : (event.amountPaid - state.total),
+      'customer_id': event.customerId,
+      'points_discount_amount': pointsDiscountAmount,
+      'total_amount': newTotal,
+      'change_amount': event.paymentMethod == 'utang' ? 0 : (event.amountPaid - newTotal),
       'note': event.note,
       'created_at': event.transactionDate != null ? event.transactionDate!.toIso8601String() : DateTime.now().toIso8601String(), // Use backdate
     };
@@ -284,11 +331,14 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       'items': itemsList.map((e) => {
         'product_id': e['product_id'], 
         'quantity': e['quantity'],
-        'product_name': e['product_name']
+        'product_name': e['product_name'],
+        'employee_id': e['employee_id'],
       }).toList(),
       'payment_method': event.paymentMethod,
       'amount_paid': event.amountPaid,
       'customer_name': event.customerName,
+      'customer_id': event.customerId,
+      'points_redeemed': event.pointsRedeemed,
       'note': event.note,
       'created_at': transactionData['created_at'],
     };
@@ -306,6 +356,11 @@ class PosBloc extends Bloc<PosEvent, PosState> {
           // Also update items with server data if available
           if (serverData['items'] != null) {
             printData['items'] = serverData['items'];
+          }
+          // Propagate Payment Gateway data if present
+          if (serverData['payment'] != null) {
+            printData['payment'] = serverData['payment'];
+            printData['status'] = 'pending';
           }
         }
 

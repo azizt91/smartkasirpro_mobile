@@ -40,6 +40,26 @@ class CustomerRepository {
       return Left(ServerFailure(e.toString()));
     }
   }
+  
+  Future<Either<Failure, List<Map<String, dynamic>>>> getEmployees() async {
+    try {
+      final token = await secureStorage.read(key: 'auth_token');
+      final response = await dio.get(
+        '/employees',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      if (response.statusCode == 200 && response.data['success']) {
+        final List<dynamic> data = response.data['employees'];
+        return Right(data.map((e) => e as Map<String, dynamic>).toList());
+      } else {
+        return Left(ServerFailure('Failed to load employees'));
+      }
+    } on DioException catch (e) {
+      return Left(ServerFailure(e.message ?? 'Network error'));
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
 
   Future<Either<Failure, CustomerModel>> createCustomer(String name, String? phone, {String? email, String? address}) async {
     try {

@@ -14,6 +14,8 @@ class ProductModel extends Equatable {
   final String? image;
   final String? description;
   final bool isLowStock;
+  final String type;
+  final double? commissionAmount;
 
   const ProductModel({
     required this.id,
@@ -29,6 +31,8 @@ class ProductModel extends Equatable {
     this.image,
     this.description,
     required this.isLowStock,
+    this.type = 'barang',
+    this.commissionAmount,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -46,6 +50,8 @@ class ProductModel extends Equatable {
       image: json['image_url'] ?? json['image'],
       description: json['description'],
       isLowStock: json['is_low_stock'] == 1 || json['is_low_stock'] == true || json['is_low_stock'] == '1',
+      type: json['type'] ?? 'barang',
+      commissionAmount: (json['commission_amount'] is String ? double.tryParse(json['commission_amount']) : (json['commission_amount'] as num?)?.toDouble()),
     );
   }
 
@@ -66,6 +72,8 @@ class ProductModel extends Equatable {
       'image': image,
       'description': description,
       'is_low_stock': isLowStock ? 1 : 0,
+      'type': type,
+      'commission_amount': commissionAmount,
     };
   }
 
