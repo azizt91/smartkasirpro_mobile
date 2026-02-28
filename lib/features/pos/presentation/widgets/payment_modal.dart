@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_app/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:mobile_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mobile_app/features/pos/data/models/customer_model.dart'; // Import
 import '../bloc/pos_bloc.dart';
 

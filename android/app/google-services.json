@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "807571446623",
-    "project_id": "push-notification-648ff",
-    "storage_bucket": "push-notification-648ff.firebasestorage.app"
+    "project_number": "40268641906",
+    "project_id": "portofolio-aziz",
+    "storage_bucket": "portofolio-aziz.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:807571446623:android:688b91318da925a1a1f4ea",
+        "mobilesdk_app_id": "1:40268641906:android:6348f849085a3918f8f4eb",
         "android_client_info": {
-          "package_name": "com.example.mobile_app"
+          "package_name": "com.smartkasirpro.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC2HH2EtXYFR50LE90E3Oe3DeepdXZSIek"
+          "current_key": "AIzaSyAKwcW_zTWcRcmeUKSijtUO84YIezpCIY4"
         }
       ],
       "services": {

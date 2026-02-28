@@ -86,7 +86,7 @@ class ReceiptBuilder {
          await bluetooth.printLeftRight("$qty x $price", subtotal, 0);
       }
       
-      await bluetooth.printCustom(divider, 0, 1);
+      await bluetooth.printCustom("--------------------------------", 0, 1);
       
       // Totals
       final double totalAmount = _parseDouble(transaction['total_amount']);

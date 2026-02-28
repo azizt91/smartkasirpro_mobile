@@ -12,6 +12,7 @@ class CustomerModel {
     this.phone,
     this.email,
     this.address,
+    this.points = 0,
   });
 
   factory CustomerModel.fromJson(Map<String, dynamic> json) {

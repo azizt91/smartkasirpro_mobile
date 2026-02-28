@@ -129,6 +129,7 @@ class PosState extends Equatable {
   final Map<String, dynamic>? lastTransaction; 
 
   const PosState({
+    this.allProducts = const [],
     this.filteredProducts = const [],
     this.categories = const [],
     this.customers = const [], 
