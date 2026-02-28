@@ -14,6 +14,8 @@ import 'package:mobile_app/features/expense/domain/repositories/expense_reposito
 import 'package:mobile_app/features/product/presentation/bloc/product_bloc.dart';
 import 'package:mobile_app/features/product/data/repositories/sync_repository_impl.dart';
 import 'package:mobile_app/features/transaction/data/repositories/transaction_repository_impl.dart';
+import 'package:mobile_app/core/services/shift_service.dart';
+import 'package:mobile_app/features/pos/presentation/widgets/shift_dialog.dart';
 
 
 class OthersPage extends StatelessWidget {
@@ -66,6 +68,23 @@ class OthersPage extends StatelessWidget {
                  bgColor: Colors.purple.withOpacity(0.1),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpensePage())),
               ),
+              _buildDivider(),
+              _buildMenuItem(
+                context,
+                icon: Icons.access_time_filled,
+                label: 'Tutup Shift Kasir',
+                iconColor: Colors.teal,
+                bgColor: Colors.teal.withOpacity(0.1),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => CloseShiftDialog(
+                      shiftService: GetIt.instance<ShiftService>(),
+                      onShiftClosed: () {},
+                    ),
+                  );
+                },
+              ),
 
             ]),
             const SizedBox(height: 24),
@@ -111,7 +130,7 @@ class OthersPage extends StatelessWidget {
             
             const SizedBox(height: 40),
             Center(
-               child: Text('POS Enterprise v1.0.0', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+               child: Text('Smart Kasir Pro v1.0.0', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
             ),
             const SizedBox(height: 20),
           ],

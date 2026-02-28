@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mobile_app/core/network/auth_interceptor.dart'; // Import
 
 import 'package:mobile_app/core/services/printer_service.dart';
+import 'package:mobile_app/core/services/shift_service.dart';
 import 'package:mobile_app/core/database/database_helper.dart';
 
 // Auth
@@ -76,6 +77,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => sharedPreferences);
   sl.registerLazySingleton(() => const FlutterSecureStorage());
   sl.registerLazySingleton<PrinterService>(() => PrinterService());
+  sl.registerLazySingleton<ShiftService>(() => ShiftService(dio: sl()));
 
   sl.registerLazySingleton(() {
     final dio = Dio();

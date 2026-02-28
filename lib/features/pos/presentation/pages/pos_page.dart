@@ -16,6 +16,8 @@ import 'package:intl/intl.dart';
 import '../widgets/payment_modal.dart'; // Add import
 import '../widgets/cart_widget.dart'; // Add import
 import '../widgets/variant_picker_sheet.dart'; // Variant picker
+import '../widgets/shift_dialog.dart'; // Shift dialog
+import '../../../../core/services/shift_service.dart'; // Shift service
 import '../../../../core/theme/app_colors.dart';
 
 class PosPage extends StatelessWidget {
@@ -30,8 +32,59 @@ class PosPage extends StatelessWidget {
   }
 }
 
-class PosView extends StatelessWidget {
+class PosView extends StatefulWidget {
   const PosView({super.key});
+
+  @override
+  State<PosView> createState() => _PosViewState();
+}
+
+class _PosViewState extends State<PosView> {
+  bool _shiftChecked = false;
+  bool _hasActiveShift = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkShift();
+  }
+
+  Future<void> _checkShift() async {
+    try {
+      final shiftService = di.sl<ShiftService>();
+      final result = await shiftService.checkShift();
+      if (mounted) {
+        setState(() {
+          _shiftChecked = true;
+          _hasActiveShift = result['has_open_shift'] == true;
+        });
+        if (!_hasActiveShift) {
+          _showOpenShiftDialog();
+        }
+      }
+    } catch (e) {
+      // If API fails (e.g., offline), allow POS usage
+      if (mounted) {
+        setState(() {
+          _shiftChecked = true;
+          _hasActiveShift = true;
+        });
+      }
+    }
+  }
+
+  void _showOpenShiftDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => OpenShiftDialog(
+        shiftService: di.sl<ShiftService>(),
+        onShiftOpened: () {
+          setState(() { _hasActiveShift = true; });
+        },
+      ),
+    );
+  }
 
   /// Determine if the current screen is a wide tablet in landscape
   bool _isTabletLandscape(BuildContext context) {
