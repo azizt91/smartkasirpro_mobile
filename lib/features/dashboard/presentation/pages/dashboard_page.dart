@@ -65,7 +65,9 @@ class DashboardPage extends StatelessWidget {
 
   Widget _buildDashboardContent(BuildContext context, dynamic data) {
     final stats = data.stats;
-    final lowStockProducts = data.lowStockItems ?? [];
+    final lowStockProducts = (data.lowStockItems ?? [])
+        .where((p) => p['type'] != 'jasa')
+        .toList();
     // Note: The API response for 'dashboard' typically has 'stats', 'sales_chart', 'top_products'.
     // Adjusting based on available data.
     

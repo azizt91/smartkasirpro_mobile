@@ -126,10 +126,12 @@ class StockBloc extends Bloc<StockEvent, StockState> {
         emit(StockError(failure.message));
       },
       (products) {
-        print('StockBloc Success: Loaded ${products.length} products');
+        // Filter out jasa (service) products — they don't have physical stock
+        final stockProducts = products.where((p) => p.type != 'jasa').toList();
+        print('StockBloc Success: Loaded ${products.length} products (${stockProducts.length} non-jasa)');
         emit(StockLoaded(
-          products: products, 
-          filteredProducts: products, // Initially all
+          products: stockProducts, 
+          filteredProducts: stockProducts, // Initially all (non-jasa)
           currentFilter: 'all'
         ));
       },
