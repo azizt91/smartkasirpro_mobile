@@ -61,14 +61,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
     for (var tx in pendingTransactions) {
       try {
         print('DEBUG SYNC: Syncing TX id=${tx.id}, payload keys=${tx.payload.keys.toList()}');
-        final syncedTx = await remoteDataSource.sendTransaction(tx.payload);
-        print('DEBUG SYNC: ✅ Synced successfully! Server ID=${syncedTx.id}, Code=${syncedTx.transactionCode}');
+        final syncedData = await remoteDataSource.sendTransaction(tx.payload);
+        print('DEBUG SYNC: ✅ Synced successfully! Server Code=${syncedData['transaction_code']}');
         
-        // Save the synced transaction data to return to caller
-        lastSyncedData = syncedTx.toJson();
+        // Save the full response (including payment data) to return to caller
+        lastSyncedData = syncedData;
         
-        // 1. Cache the synced transaction locally
-        await localDataSource.upsertTransactions([syncedTx]);
+        // 1. Cache the synced transaction locally (without payment key)
+        final cacheData = Map<String, dynamic>.from(syncedData);
+        cacheData.remove('payment'); // Don't cache payment gateway details
+        final model = TransactionModel.fromJson(cacheData);
+        await localDataSource.upsertTransactions([model]);
         
         // 2. Delete from pending
         if (tx.id != null) {
@@ -100,12 +103,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
     for (var tx in pendingTransactions) {
       try {
         print('DEBUG SYNC: Syncing TX id=${tx.id}, payload keys=${tx.payload.keys.toList()}');
-        final syncedTx = await remoteDataSource.sendTransaction(tx.payload);
-        print('DEBUG SYNC: ✅ Synced successfully! Server ID=${syncedTx.id}');
+        final syncedData = await remoteDataSource.sendTransaction(tx.payload);
+        print('DEBUG SYNC: ✅ Synced successfully! Server Code=${syncedData['transaction_code']}');
         
         // Success: 
         // 1. Cache the synced transaction locally to ensure it appears in history immediately
-        await localDataSource.upsertTransactions([syncedTx]);
+        final cacheData = Map<String, dynamic>.from(syncedData);
+        cacheData.remove('payment');
+        final model = TransactionModel.fromJson(cacheData);
+        await localDataSource.upsertTransactions([model]);
         
         // 2. Delete from pending
         if (tx.id != null) {
