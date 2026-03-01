@@ -5,6 +5,8 @@ import 'package:mobile_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_app/features/auth/presentation/bloc/auth_state.dart';
 import 'package:mobile_app/features/pos/data/models/customer_model.dart'; // Import
 import '../bloc/pos_bloc.dart';
+import 'package:dio/dio.dart';
+import 'package:mobile_app/injection_container.dart' as di;
 
 class PaymentModal extends StatefulWidget {
   final double totalAmount;
@@ -24,6 +26,12 @@ class _PaymentModalState extends State<PaymentModal> {
 
   DateTime _selectedDate = DateTime.now();
   CustomerModel? _selectedCustomer; // Null means "Umum"
+
+  // Channels logic
+  String? _selectedChannel;
+  List<Map<String, dynamic>> _channels = [];
+  bool _isLoadingChannels = false;
+  String? _channelError;
   
   // Points logic
   bool _usePoints = false;
@@ -55,6 +63,39 @@ class _PaymentModalState extends State<PaymentModal> {
             _loyaltyPointsEnabled = enablePoints == true || enablePoints == 'true' || enablePoints == 1 || enablePoints == '1';
         }
     }
+  }
+
+  Future<void> _fetchChannels(String method) async {
+      if (!['ewallet', 'transfer', 'qris'].contains(method)) {
+         setState(() {
+             _channels = [];
+             _selectedChannel = null;
+         });
+         return;
+      }
+
+      setState(() {
+          _isLoadingChannels = true;
+          _channelError = null;
+          _channels = [];
+          _selectedChannel = null;
+      });
+
+      try {
+          final dio = di.sl<Dio>();
+          final response = await dio.get('/pos/payment-channels?method=$method');
+          if (response.statusCode == 200 && response.data['success'] == true) {
+              setState(() {
+                  _channels = List<Map<String, dynamic>>.from(response.data['data']);
+              });
+          } else {
+              setState(() => _channelError = response.data['message'] ?? 'Gagal memuat provider');
+          }
+      } catch (e) {
+          setState(() => _channelError = 'Gagal memuat provider: \$e');
+      } finally {
+          setState(() => _isLoadingChannels = false);
+      }
   }
 
   void _pickDate() async {
@@ -205,6 +246,49 @@ class _PaymentModalState extends State<PaymentModal> {
                            _buildMethodCard('utang', 'Utang', Icons.history),
                         ],
                       ),
+
+                      // Payment Channels Grid (Dynamic)
+                      if (['ewallet', 'transfer', 'qris'].contains(_selectedPaymentMethod)) ...[
+                          const SizedBox(height: 20),
+                          const Align(alignment: Alignment.centerLeft, child: Text('PILIH PROVIDER', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1))),
+                          const SizedBox(height: 12),
+                          if (_isLoadingChannels)
+                              const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+                          else if (_channelError != null)
+                              Center(child: Text(_channelError!, style: const TextStyle(color: Colors.red, fontSize: 13)))
+                          else if (_channels.isEmpty)
+                              const Center(child: Text('Provider tidak tersedia', style: TextStyle(color: Colors.grey, fontSize: 13)))
+                          else
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _channels.length,
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                   crossAxisCount: 2,
+                                   crossAxisSpacing: 10,
+                                   mainAxisSpacing: 10,
+                                   childAspectRatio: 3,
+                                ),
+                                itemBuilder: (context, index) {
+                                   final ch = _channels[index];
+                                   final isSelected = _selectedChannel == ch['code'];
+                                   return InkWell(
+                                      onTap: () => setState(() => _selectedChannel = ch['code']),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                         alignment: Alignment.center,
+                                         padding: const EdgeInsets.symmetric(horizontal: 4),
+                                         decoration: BoxDecoration(
+                                            color: isSelected ? const Color(0xFFE8F5E9) : Colors.white,
+                                            border: Border.all(color: isSelected ? const Color(0xFF1B9C5E) : Colors.grey.shade300, width: isSelected ? 2 : 1),
+                                            borderRadius: BorderRadius.circular(8),
+                                         ),
+                                         child: Text(ch['name'] ?? '', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? const Color(0xFF1B9C5E) : Colors.black87)),
+                                      ),
+                                   );
+                                }
+                              ),
+                      ],
 
                       const SizedBox(height: 24),
 
@@ -450,8 +534,17 @@ class _PaymentModalState extends State<PaymentModal> {
                               return;
                           }
 
+                          // Validation: Prevent Checkout if Digital Channel not selected
+                          if (['ewallet', 'transfer', 'qris'].contains(_selectedPaymentMethod) && _selectedChannel == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Pilih provider pembayaran (E-Wallet/Bank)!'), backgroundColor: Colors.red)
+                              );
+                              return;
+                          }
+
                           context.read<PosBloc>().add(SubmitTransaction(
                                paymentMethod: _selectedPaymentMethod,
+                               paymentChannel: _selectedChannel,
                                amountPaid: paid,
                                customerName: _selectedCustomer?.name, // Pass selected customer name
                                customerId: _selectedCustomer?.id, // Pass selected customer ID
@@ -501,7 +594,12 @@ class _PaymentModalState extends State<PaymentModal> {
   Widget _buildMethodCard(String id, String label, IconData icon) {
      final isSelected = _selectedPaymentMethod == id;
      return GestureDetector(
-       onTap: () => setState(() => _selectedPaymentMethod = id),
+       onTap: () {
+           if (_selectedPaymentMethod != id) {
+               setState(() => _selectedPaymentMethod = id);
+               _fetchChannels(id);
+           }
+       },
        child: Container(
           decoration: BoxDecoration(
              color: isSelected ? const Color(0xFFE8F5E9) : Colors.white,

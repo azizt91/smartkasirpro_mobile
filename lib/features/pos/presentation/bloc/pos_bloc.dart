@@ -47,6 +47,7 @@ class RemoveFromCart extends PosEvent {
 class ClearCart extends PosEvent {}
 class SubmitTransaction extends PosEvent {
   final String paymentMethod;
+  final String? paymentChannel;
   final double amountPaid;
   final String? customerName;
   final int? customerId; // NEW
@@ -57,6 +58,7 @@ class SubmitTransaction extends PosEvent {
 
   SubmitTransaction({
     required this.paymentMethod, 
+    this.paymentChannel,
     required this.amountPaid,
     this.customerName,
     this.customerId,
@@ -67,7 +69,7 @@ class SubmitTransaction extends PosEvent {
   });
   
   @override
-  List<Object> get props => [paymentMethod, amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100];
+  List<Object> get props => [paymentMethod, paymentChannel ?? '', amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100];
 }
 
 class ScanBarcode extends PosEvent {
@@ -318,6 +320,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       'transaction_code': 'OFFLINE-${DateTime.now().millisecondsSinceEpoch}', 
       'items': itemsList, 
       'payment_method': event.paymentMethod,
+      'payment_channel': event.paymentChannel,
       'amount_paid': event.amountPaid,
       'customer_name': event.customerName,
       'customer_id': event.customerId,
@@ -336,6 +339,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         'employee_id': e['employee_id'],
       }).toList(),
       'payment_method': event.paymentMethod,
+      'payment_channel': event.paymentChannel,
       'amount_paid': event.amountPaid,
       'customer_name': event.customerName,
       'customer_id': event.customerId,
