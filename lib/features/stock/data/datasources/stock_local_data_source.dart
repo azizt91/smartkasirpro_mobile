@@ -55,7 +55,6 @@ class StockLocalDataSourceImpl implements StockLocalDataSource {
   @override
   Future<void> savePendingAdjustment(PendingStockAdjustmentModel adjustment) async {
     final db = await databaseHelper.database;
-    await db.insert('pending_stock_adjustments', adjustment.toMap());
     
     // Also update local product immediately for UI reactivity
     // Calculate new stock based on type
@@ -72,7 +71,21 @@ class StockLocalDataSourceImpl implements StockLocalDataSource {
          newStock = adjustment.quantity;
       }
       
+      // Prevent negative stock
+      if (newStock < 0) newStock = 0;
+      
       await updateProductStock(adjustment.productId, newStock);
+      
+      // Save pending adjustment with 'set' type and the final calculated stock
+      // This prevents double-apply: local does add/subtract, API gets absolute 'set' value
+      final syncAdjustment = PendingStockAdjustmentModel(
+        productId: adjustment.productId,
+        type: 'set',
+        quantity: newStock,
+        notes: adjustment.notes,
+        createdAt: adjustment.createdAt,
+      );
+      await db.insert('pending_stock_adjustments', syncAdjustment.toMap());
       
       // Also save to local stock movements cache so it shows in history immediately
       await db.insert('stock_movements', {
