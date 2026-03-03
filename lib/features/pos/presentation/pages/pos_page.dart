@@ -9,9 +9,9 @@ import 'package:mobile_app/features/product/data/models/category_model.dart';
 import '../../../../core/utils/receipt_builder.dart'; // Import
 import '../widgets/payment_pending_dialog.dart'; // PG Dialog
 import '../../../../core/services/printer_service.dart'; // Import
-import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../widgets/success_dialog.dart'; // Import
+import '../widgets/pending_orders_sheet.dart'; // NEW: Import Pending Orders Sheet
 import 'package:intl/intl.dart';
 import '../widgets/payment_modal.dart'; // Add import
 import '../widgets/cart_widget.dart'; // Add import
@@ -100,10 +100,62 @@ class _PosViewState extends State<PosView> {
       appBar: AppBar(
         title: const Text('Point of Sale', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF1A1A2E))),
         actions: [
+          // Pending Orders Icon Button
+          BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              bool isResto = false;
+              if (authState is AuthAuthenticated) {
+                 isResto = authState.user.settings['business_mode'] == 'resto';
+              }
+              if (!isResto) return const SizedBox.shrink();
+
+              return BlocBuilder<PosBloc, PosState>(
+                builder: (context, state) {
+                  final pendingCount = state.pendingOrders.length;
+                  return IconButton(
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.notifications_none, size: 28),
+                        if (pendingCount > 0)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.amber,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                pendingCount.toString(),
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ),
+                          )
+                      ],
+                    ),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<PosBloc>(),
+                          child: const PendingOrdersSheet(),
+                        ),
+                      );
+                    },
+                  );
+                },
+              );
+            }
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               context.read<PosBloc>().add(LoadPosData());
+              context.read<PosBloc>().add(FetchPendingOrders()); // Refresh pending orders
             },
           ),
         ],

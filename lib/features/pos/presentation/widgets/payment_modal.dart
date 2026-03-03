@@ -231,20 +231,30 @@ class _PaymentModalState extends State<PaymentModal> {
                       // Payment Methods Grid
                       const Align(alignment: Alignment.centerLeft, child: Text('METODE PEMBAYARAN', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1))),
                       const SizedBox(height: 12),
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.9,
-                        children: [
-                           _buildMethodCard('cash', 'Tunai', Icons.payments_outlined),
-                           _buildMethodCard('qris', 'QRIS', Icons.qr_code_scanner),
-                           _buildMethodCard('transfer', 'Transfer', Icons.account_balance_outlined),
-                           _buildMethodCard('ewallet', 'E-Wallet', Icons.account_balance_wallet_outlined),
-                           _buildMethodCard('utang', 'Utang', Icons.history),
-                        ],
+                      BlocBuilder<AuthBloc, AuthState>(
+                        builder: (context, state) {
+                          bool isResto = false;
+                          if (state is AuthAuthenticated) {
+                            isResto = state.user.settings['business_mode'] == 'resto';
+                          }
+                          
+                          return GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 4,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.9,
+                            children: [
+                               _buildMethodCard('cash', 'Tunai', Icons.payments_outlined),
+                               _buildMethodCard('qris', 'QRIS', Icons.qr_code_scanner),
+                               _buildMethodCard('transfer', 'Transfer', Icons.account_balance_outlined),
+                               _buildMethodCard('ewallet', 'E-Wallet', Icons.account_balance_wallet_outlined),
+                               if (!isResto) 
+                                 _buildMethodCard('utang', 'Utang', Icons.history),
+                            ],
+                          );
+                        }
                       ),
 
                       // Payment Channels Grid (Dynamic)

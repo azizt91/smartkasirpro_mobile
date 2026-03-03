@@ -8,6 +8,7 @@ import 'package:mobile_app/features/pos/presentation/pages/pos_page.dart';
 import 'package:mobile_app/features/others/presentation/pages/others_page.dart';
 import 'package:mobile_app/features/stock/presentation/pages/stock_page.dart';
 import 'package:mobile_app/features/receivable/presentation/pages/receivable_page.dart';
+import 'package:mobile_app/features/kitchen/presentation/pages/kitchen_page.dart'; // NEW
 import 'package:mobile_app/features/product/presentation/bloc/product_bloc.dart'; // Import
 import 'package:mobile_app/features/stock/presentation/bloc/stock_bloc.dart'; // Import StockBloc
 import 'package:mobile_app/core/services/notification_service.dart'; // Import NotificationService
@@ -38,11 +39,12 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
+    // Default pages (will be overridden in build if resto mode)
     _pages = [
       DashboardPage(onGoToStock: () => _onItemTapped(1)),
       const StockPage(),
       const PosPage(),
-      const ReceivablePage(),
+      const ReceivablePage(), // Default 3
       const OthersPage(),
     ];
     // Trigger Sync whenever MainPage is loaded (especially for fresh install)
@@ -88,12 +90,28 @@ class _MainPageState extends State<MainPage> {
           statusBarIconBrightness: Brightness.dark,
           statusBarBrightness: Brightness.light,
         ),
-        child: Scaffold(
-          backgroundColor: AppColors.backgroundLight,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _pages,
-        ),
+        child: BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, authState) {
+            bool isResto = false;
+            if (authState is AuthAuthenticated) {
+               isResto = authState.user.settings['business_mode'] == 'resto';
+            }
+
+            // Dynamically update pages based on mode
+            _pages = [
+              DashboardPage(onGoToStock: () => _onItemTapped(1)),
+              const StockPage(),
+              const PosPage(),
+              isResto ? const KitchenPage() : const ReceivablePage(),
+              const OthersPage(),
+            ];
+
+            return Scaffold(
+              backgroundColor: AppColors.backgroundLight,
+            body: IndexedStack(
+              index: _currentIndex,
+              children: _pages,
+            ),
         floatingActionButton: SizedBox(
           width: 56,
           height: 56,
@@ -120,14 +138,16 @@ class _MainPageState extends State<MainPage> {
                 _buildNavItem(icon: Icons.grid_view_rounded, label: 'Dashboard', index: 0),
                 _buildNavItem(icon: Icons.inventory_2_outlined, label: 'Stok', index: 1),
                 const SizedBox(width: 40), // Space for FAB
-                _buildNavItem(icon: Icons.account_balance_wallet_outlined, label: 'Piutang', index: 3),
+                _buildNavItem(icon: isResto ? Icons.restaurant : Icons.account_balance_wallet_outlined, label: isResto ? 'Dapur' : 'Piutang', index: 3),
                 _buildNavItem(icon: Icons.menu, label: 'Lainnya', index: 4),
               ],
             ),
           ),
         ),
-      ),
-    ),
+      );
+    }
+  ),
+),
     );
   }
 

@@ -252,7 +252,9 @@ class _HistoryViewState extends State<HistoryView> {
           const SizedBox(width: 8),
           _buildFilterChip('Berhasil', isSelected: _selectedFilter == 'Berhasil'),
           const SizedBox(width: 8),
-          _buildFilterChip('Menunggu', isSelected: _selectedFilter == 'Menunggu'),
+          _buildFilterChip('Menunggu', isSelected: _selectedFilter == 'Menunggu'), // Utang
+          const SizedBox(width: 8),
+          _buildFilterChip('Belum Bayar', isSelected: _selectedFilter == 'Belum Bayar'), // Unpaid (Resto)
           const SizedBox(width: 8),
           _buildFilterChip('Dibatalkan', isSelected: _selectedFilter == 'Dibatalkan'),
         ],
@@ -300,10 +302,13 @@ class _HistoryViewState extends State<HistoryView> {
   List<TransactionModel> _filterTransactions(List<TransactionModel> transactions) {
     if (_selectedFilter == 'Semua') return transactions;
     if (_selectedFilter == 'Berhasil') {
-      return transactions.where((tx) => tx.status != 'void' && tx.paymentMethod != 'utang').toList();
+      return transactions.where((tx) => tx.status != 'void' && tx.paymentMethod != 'utang' && tx.paymentStatus == 'paid').toList();
     }
     if (_selectedFilter == 'Menunggu') {
       return transactions.where((tx) => tx.status != 'void' && tx.paymentMethod == 'utang').toList();
+    }
+    if (_selectedFilter == 'Belum Bayar') {
+      return transactions.where((tx) => tx.status != 'void' && tx.paymentStatus == 'unpaid').toList();
     }
     if (_selectedFilter == 'Dibatalkan') {
       return transactions.where((tx) => tx.status == 'void').toList();
@@ -327,6 +332,13 @@ class _HistoryViewState extends State<HistoryView> {
       icon = Icons.block;
       iconColor = Colors.red.shade600;
       iconBgColor = Colors.red.shade50;
+    } else if (tx.paymentStatus == 'unpaid') {
+      status = 'Belum Bayar';
+      statusColor = Colors.orange.shade700;
+      statusBgColor = Colors.orange.shade100;
+      icon = Icons.pause_circle_outline;
+      iconColor = Colors.orange.shade600;
+      iconBgColor = Colors.orange.shade50;
     } else if (tx.paymentMethod == 'utang') {
       status = 'Menunggu';
       statusColor = Colors.orange.shade700;

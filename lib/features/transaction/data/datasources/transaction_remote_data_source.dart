@@ -8,6 +8,11 @@ abstract class TransactionRemoteDataSource {
   // NEW: Fetch and Void
   Future<List<TransactionModel>> getTransactions();
   Future<void> voidTransaction(int id);
+  
+  // RESTO MODE
+  Future<List<Map<String, dynamic>>> getPendingOrders();
+  Future<List<Map<String, dynamic>>> getKitchenOrders();
+  Future<void> updateOrderStatus(String code, String status);
 }
 
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
@@ -69,6 +74,65 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       final response = await dio.delete('/transactions/$id');
       if (response.statusCode != 200) {
         throw ServerFailure('Failed to void transaction');
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.message ?? 'Dio Error');
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPendingOrders() async {
+    try {
+      final response = await dio.get('/pos/api/orders/pending');
+      if (response.statusCode == 200) {
+        List<dynamic> data;
+        if (response.data is List) {
+          data = response.data;
+        } else if (response.data is Map && response.data.containsKey('data')) {
+          data = response.data['data'] as List;
+        } else {
+          return [];
+        }
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        throw ServerFailure('Gagal mengambil antrean pesanan');
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.message ?? 'Dio Error');
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getKitchenOrders() async {
+    try {
+      final response = await dio.get('/pos/api/orders/kitchen');
+      if (response.statusCode == 200) {
+        List<dynamic> data;
+        if (response.data is List) {
+          data = response.data;
+        } else if (response.data is Map && response.data.containsKey('data')) {
+          data = response.data['data'] as List;
+        } else {
+          return [];
+        }
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        throw ServerFailure('Gagal mengambil pesanan dapur');
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.message ?? 'Dio Error');
+    }
+  }
+
+  @override
+  Future<void> updateOrderStatus(String code, String status) async {
+    try {
+      final response = await dio.put('/pos/api/orders/update-status', data: {
+        'transaction_code': code,
+        'order_status': status,
+      });
+      if (response.statusCode != 200) {
+        throw ServerFailure('Gagal update status pesanan');
       }
     } on DioException catch (e) {
       throw ServerFailure(e.message ?? 'Dio Error');

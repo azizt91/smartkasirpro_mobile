@@ -11,6 +11,10 @@ abstract class TransactionRepository {
   Future<String?> syncPendingTransactions();
   Future<Either<Failure, List<TransactionModel>>> getTransactions();
   Future<Either<Failure, void>> voidTransaction(int id);
+  // RESTO MODE
+  Future<Either<Failure, List<Map<String, dynamic>>>> getPendingOrders();
+  Future<Either<Failure, List<Map<String, dynamic>>>> getKitchenOrders();
+  Future<Either<Failure, void>> updateOrderStatus(String code, String status);
 }
 
 class TransactionRepositoryImpl implements TransactionRepository {
@@ -176,6 +180,36 @@ class TransactionRepositoryImpl implements TransactionRepository {
        return const Right(null);
     } catch (e) {
        return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getPendingOrders() async {
+    try {
+      final orders = await remoteDataSource.getPendingOrders();
+      return Right(orders);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getKitchenOrders() async {
+    try {
+      final orders = await remoteDataSource.getKitchenOrders();
+      return Right(orders);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateOrderStatus(String code, String status) async {
+    try {
+      await remoteDataSource.updateOrderStatus(code, status);
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
     }
   }
 }

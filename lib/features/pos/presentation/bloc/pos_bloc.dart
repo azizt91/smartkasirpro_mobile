@@ -87,6 +87,15 @@ class AddCustomer extends PosEvent {
   List<Object> get props => [name, phone ?? ''];
 }
 
+// RESTO MODE EVENTS
+class FetchPendingOrders extends PosEvent {}
+class BukaProsesPesanan extends PosEvent {
+  final Map<String, dynamic> order;
+  BukaProsesPesanan(this.order);
+  @override
+  List<Object> get props => [order];
+}
+
 // States
 class CartItem extends Equatable {
   final ProductModel product;
@@ -129,6 +138,7 @@ class PosState extends Equatable {
   final String? error;
   final bool isSuccess; 
   final Map<String, dynamic>? lastTransaction; 
+  final List<Map<String, dynamic>> pendingOrders; // RESTO MODE
 
   const PosState({
     this.allProducts = const [],
@@ -143,6 +153,7 @@ class PosState extends Equatable {
     this.error,
     this.isSuccess = false,
     this.lastTransaction,
+    this.pendingOrders = const [],
   });
 
   double get subtotal => cartItems.fold(0, (sum, item) => sum + item.subtotal);
@@ -162,6 +173,7 @@ class PosState extends Equatable {
     String? error,
     bool? isSuccess,
     Map<String, dynamic>? lastTransaction,
+    List<Map<String, dynamic>>? pendingOrders,
   }) {
     return PosState(
       allProducts: allProducts ?? this.allProducts,
@@ -176,11 +188,12 @@ class PosState extends Equatable {
       error: error,
       isSuccess: isSuccess ?? this.isSuccess,
       lastTransaction: lastTransaction ?? this.lastTransaction,
+      pendingOrders: pendingOrders ?? this.pendingOrders,
     );
   }
 
   @override
-  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction];
+  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction, pendingOrders];
 }
 
 // Bloc
@@ -203,6 +216,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     on<SubmitTransaction>(_onSubmitTransaction);
     on<ScanBarcode>(_onScanBarcode);
     on<AddCustomer>(_onAddCustomer);
+    on<FetchPendingOrders>(_onFetchPendingOrders);
+    on<BukaProsesPesanan>(_onBukaProsesPesanan);
   }
 
   Future<void> _onLoadData(LoadPosData event, Emitter<PosState> emit) async {
@@ -415,5 +430,47 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         ));
       }
     );
+  }
+
+  Future<void> _onFetchPendingOrders(FetchPendingOrders event, Emitter<PosState> emit) async {
+    final result = await transactionRepository.getPendingOrders();
+    result.fold(
+      (failure) => emit(state.copyWith(error: failure.message)), // Just emit error
+      (orders) => emit(state.copyWith(pendingOrders: orders))
+    );
+  }
+
+  void _onBukaProsesPesanan(BukaProsesPesanan event, Emitter<PosState> emit) {
+    final order = event.order;
+    // Clears the current cart and replaces it with the order items
+    final List<dynamic> itemsRaw = order['items'] ?? [];
+    List<CartItem> newCartItems = [];
+    
+    for (var raw in itemsRaw) {
+      try {
+        final product = state.allProducts.firstWhere(
+          (p) => p.name == raw['name'] || p.id == raw['id'],
+          orElse: () => ProductModel(
+            id: raw['id'] ?? 0,
+            categoryId: 0,
+            name: raw['name'],
+            type: raw['type'] ?? 'barang',
+            sellingPrice: (raw['price'] as num).toDouble(),
+            stock: 999, // Bypass stock for unknown
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          )
+        );
+        newCartItems.add(CartItem(product: product, quantity: raw['qty'] ?? 1));
+      } catch (e) {
+        print("Error parsing item for order ${order['transaction_code']}: $e");
+      }
+    }
+
+    emit(state.copyWith(
+      cartItems: newCartItems,
+      // Attempt to map customer name to existing customer ID if found
+      // Alternatively, the UI will just display it or PosPage can handle it via state
+    ));
   }
 }

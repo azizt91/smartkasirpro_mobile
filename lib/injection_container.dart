@@ -63,6 +63,9 @@ import 'package:mobile_app/features/pos/presentation/bloc/pos_bloc.dart';
 import 'package:mobile_app/features/pos/data/repositories/customer_repository.dart';
 import 'package:mobile_app/features/others/presentation/bloc/customer_bloc.dart'; // Import
 
+// Kitchen
+import 'package:mobile_app/features/kitchen/presentation/bloc/kitchen_bloc.dart';
+
 // Notification Imports
 import 'package:mobile_app/features/notification/data/datasources/notification_remote_data_source.dart';
 import 'package:mobile_app/features/notification/data/repositories/notification_repository.dart';
@@ -140,6 +143,9 @@ Future<void> init() async {
     transactionRepository: sl(),
     customerRepository: sl(), // Inject CustomerRepo
   ));
+
+  // -- Kitchen --
+  sl.registerFactory(() => KitchenBloc(transactionRepository: sl()));
 
   // -- Stock --
   sl.registerFactory(() => StockBloc(repository: sl()));
