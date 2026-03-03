@@ -77,24 +77,24 @@ class _AppStarterState extends State<AppStarter> {
 
     // 4. Dependency Injection (Crucial)
     try {
-       await di.init();
-       // Auto-reconnect Bluetooth printer on startup without awaiting to prevent blocking
-       di.sl<PrinterService>().ensureConnected();
+      await di.init();
+      // Auto-reconnect Bluetooth printer on startup without awaiting to prevent blocking
+      di.sl<PrinterService>().ensureConnected();
     } catch (e) {
-       debugPrint("DI Init Error: $e");
+      debugPrint("DI Init Error: $e");
     }
-    
+
     // 5. Locale
     await initializeDateFormatting('id_ID', null);
 
     // 6. Firebase & Notifications
     try {
-       await Firebase.initializeApp(
-         options: DefaultFirebaseOptions.currentPlatform,
-       );
-       await NotificationService().initialize();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await NotificationService().initialize();
     } catch (e) {
-       debugPrint("Firebase/Notification initialization failed: $e");
+      debugPrint("Firebase/Notification initialization failed: $e");
     }
 
     if (mounted) {
@@ -176,23 +176,7 @@ class AuthWrapper extends StatelessWidget {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         if (state is AuthAuthenticated) {
-           // We might need to ensure this is only called once or handled by Bloc logic
-           // But existing code had it here.
-           // However, calling it during build might be redundant if Bloc already handles it.
-           // But let's keep it consistent with previous logic for now.
-           // Better practice: do it in BlocListener in Main Page.
-           // I'll leave it as is to minimize regression risk.
-           context.read<ProductBloc>().add(SyncProducts()); // Keep existing
-            
-           // Sync FCM Token
-           NotificationService().getToken().then((token) {
-             if (token != null) {
-               context.read<AuthBloc>().add(AuthUpdateFcmToken(token));
-               debugPrint("AuthWrapper: Triggering FCM Token Sync");
-             }
-           });
-
-           return const MainPage();
+          return const MainPage();
         }
         return const LoginPage();
       },
