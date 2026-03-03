@@ -29,8 +29,6 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
 
-  late final List<Widget> _pages;
-
   void _onItemTapped(int index) {
     setState(() {
       _currentIndex = index;
@@ -40,14 +38,6 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     super.initState();
-    // Default pages (will be overridden in build if resto mode)
-    _pages = [
-      DashboardPage(onGoToStock: () => _onItemTapped(1)),
-      const StockPage(),
-      const PosPage(),
-      const ReceivablePage(), // Default 3
-      const OthersPage(),
-    ];
     // Trigger Sync whenever MainPage is loaded (especially for fresh install)
     context.read<ProductBloc>().add(SyncProducts());
     context.read<DashboardBloc>().add(LoadDashboardData()); // Load Dashboard immediately
@@ -99,7 +89,7 @@ class _MainPageState extends State<MainPage> {
             }
 
             // Dynamically update pages based on mode
-            _pages = [
+            final pages = [
               DashboardPage(onGoToStock: () => _onItemTapped(1)),
               const StockPage(),
               const PosPage(),
@@ -111,7 +101,7 @@ class _MainPageState extends State<MainPage> {
               backgroundColor: AppColors.backgroundLight,
             body: IndexedStack(
               index: _currentIndex,
-              children: _pages,
+              children: pages,
             ),
         floatingActionButton: SizedBox(
           width: 56,
