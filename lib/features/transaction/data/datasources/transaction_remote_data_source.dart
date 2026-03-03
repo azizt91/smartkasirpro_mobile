@@ -98,7 +98,11 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
         throw ServerFailure('Gagal mengambil antrean pesanan');
       }
     } on DioException catch (e) {
+      print('DIO PENDING ERR: $e');
       throw ServerFailure(e.message ?? 'Dio Error');
+    } catch (e) {
+      print('GET PENDING ERR: $e');
+      throw ServerFailure('Parse Error: $e');
     }
   }
 
