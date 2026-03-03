@@ -331,7 +331,7 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
                            ),
                          ),
                          Text(
-                           currencyFormatter.format((item['price'] * item['qty'])),
+                           currencyFormatter.format((double.tryParse(item['price'].toString()) ?? 0) * (int.tryParse(item['qty'].toString()) ?? 0)),
                            style: TextStyle(color: Colors.grey.shade700),
                          ),
                        ],

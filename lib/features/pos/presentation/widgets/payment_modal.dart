@@ -65,6 +65,30 @@ class _PaymentModalState extends State<PaymentModal> {
     }
   }
 
+  int? _selectedTableId;
+  bool _isTakeaway = false;
+
+  void _showTablePicker() {
+    final posBloc = context.read<PosBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BlocProvider.value(
+        value: posBloc,
+        child: _TableSearchModal(
+          onSelect: (tableId, isTakeaway) {
+            setState(() {
+              _selectedTableId = tableId;
+              _isTakeaway = isTakeaway;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _fetchChannels(String method) async {
       if (!['ewallet', 'transfer', 'qris'].contains(method)) {
          setState(() {
@@ -312,6 +336,52 @@ class _PaymentModalState extends State<PaymentModal> {
                         ),
                         child: Column(
                           children: [
+                            // Table Selector (RESTO MODE ONLY)
+                            BlocBuilder<AuthBloc, AuthState>(
+                              builder: (context, state) {
+                                bool isResto = false;
+                                if (state is AuthAuthenticated) {
+                                  isResto = state.user.settings['business_mode'] == 'resto';
+                                }
+                                if (!isResto) return const SizedBox.shrink();
+
+                                String tableText = 'Pilih Meja / Bawa Pulang';
+                                if (_isTakeaway) tableText = 'Bawa Pulang (Takeaway)';
+                                else if (_selectedTableId != null) {
+                                  final tbState = context.read<PosBloc>().state;
+                                  final tb = tbState.tables.firstWhere((t) => t['id'] == _selectedTableId, orElse: () => {});
+                                  if (tb.isNotEmpty) tableText = 'Meja ${tb['nama_meja']}';
+                                }
+
+                                return Column(
+                                  children: [
+                                    InkWell(
+                                      onTap: _showTablePicker,
+                                      child: Row(
+                                        children: [
+                                          Icon(_isTakeaway ? Icons.takeout_dining : Icons.table_restaurant, color: Colors.grey),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text('Meja / Pesanan', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                                Text(
+                                                  tableText,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Icon(Icons.chevron_right, color: Colors.grey),
+                                        ],
+                                      ),
+                                    ),
+                                    const Divider(height: 24),
+                                  ],
+                                );
+                              }
+                            ),
                             // Customer Selector
                             InkWell(
                               onTap: _showCustomerPicker,
@@ -556,11 +626,13 @@ class _PaymentModalState extends State<PaymentModal> {
                                paymentMethod: _selectedPaymentMethod,
                                paymentChannel: _selectedChannel,
                                amountPaid: paid,
-                               customerName: _selectedCustomer?.name, // Pass selected customer name
-                               customerId: _selectedCustomer?.id, // Pass selected customer ID
-                               transactionDate: _selectedDate, // Pass selected date
-                               pointsRedeemed: _usePoints ? _pointsToRedeem : 0, // NEW
+                               customerName: _selectedCustomer?.name, 
+                               customerId: _selectedCustomer?.id, 
+                               transactionDate: _selectedDate, 
+                               pointsRedeemed: _usePoints ? _pointsToRedeem : 0, 
                                pointExchangeRate: _pointExchangeRate,
+                               tableId: _selectedTableId, // NEW
+                               isTakeaway: _isTakeaway, // NEW
                           ));
                           Navigator.pop(context); // Close Payment Modal
                       },
@@ -903,5 +975,136 @@ class _CustomerSearchModalState extends State<_CustomerSearchModal> {
                 c.name.toLowerCase().contains(query.toLowerCase()) || 
                 (c.phone != null && c.phone!.contains(query))
               ).toList();
+  }
+}
+
+class _TableSearchModal extends StatefulWidget {
+  final Function(int? tableId, bool isTakeaway) onSelect;
+
+  const _TableSearchModal({required this.onSelect, Key? key}) : super(key: key);
+
+  @override
+  State<_TableSearchModal> createState() => _TableSearchModalState();
+}
+
+class _TableSearchModalState extends State<_TableSearchModal> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<PosBloc, PosState>(
+      builder: (context, state) {
+        // Filter tables list
+        final tables = state.tables.where((t) {
+          final n = (t['nama_meja'] ?? '').toString().toLowerCase();
+          return n.contains(_query.toLowerCase());
+        }).toList();
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 16,
+            left: 16,
+            right: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
+              const SizedBox(height: 16),
+              const Text('Pilih Meja', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Cari nomor/nama meja...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onChanged: (val) => setState(() => _query = val),
+              ),
+              const SizedBox(height: 16),
+              
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: tables.length + 2, // Takeaway + Kosong/Pilih Nanti
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Card(
+                        elevation: 0,
+                        color: Colors.orange.shade50,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.orange.shade200)),
+                        child: ListTile(
+                          leading: const CircleAvatar(backgroundColor: Colors.orange, child: Icon(Icons.takeout_dining, color: Colors.white)),
+                          title: const Text('Bawa Pulang (Takeaway)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                          onTap: () {
+                             widget.onSelect(null, true);
+                             Navigator.pop(context);
+                          },
+                        ),
+                      );
+                    }
+                    if (index == 1) {
+                      return Card(
+                        elevation: 0,
+                        color: Colors.grey.shade50,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
+                        child: ListTile(
+                          leading: const CircleAvatar(backgroundColor: Colors.grey, child: Icon(Icons.not_interested, color: Colors.white)),
+                          title: const Text('Tanpa Meja', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onTap: () {
+                             widget.onSelect(null, false);
+                             Navigator.pop(context);
+                          },
+                        ),
+                      );
+                    }
+                    
+                    final tb = tables[index - 2];
+                    final isAvailable = tb['status'] == 'available';
+
+                    return Card(
+                      elevation: 2,
+                      shadowColor: Colors.black12,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isAvailable ? const Color(0xFFE8F5E9) : Colors.red.shade50,
+                          child: Icon(Icons.table_restaurant, color: isAvailable ? const Color(0xFF1B9C5E) : Colors.red),
+                        ),
+                        title: Text('Meja ${tb['nama_meja']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          isAvailable ? 'Tersedia • Kapasitas: ${tb['kapasitas']}' : 'Terisi',
+                          style: TextStyle(color: isAvailable ? Colors.green : Colors.red, fontSize: 12)
+                        ),
+                        enabled: isAvailable, 
+                        onTap: () {
+                          if (isAvailable) {
+                            widget.onSelect(tb['id'] as int?, false);
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

@@ -50,11 +50,13 @@ class SubmitTransaction extends PosEvent {
   final String? paymentChannel;
   final double amountPaid;
   final String? customerName;
-  final int? customerId; // NEW
+  final int? customerId; 
   final String? note;
   final DateTime? transactionDate;
   final int? pointsRedeemed;
   final int? pointExchangeRate;
+  final int? tableId; // NEW
+  final bool? isTakeaway; // NEW
 
   SubmitTransaction({
     required this.paymentMethod, 
@@ -66,10 +68,12 @@ class SubmitTransaction extends PosEvent {
     this.transactionDate,
     this.pointsRedeemed = 0,
     this.pointExchangeRate = 100,
+    this.tableId,
+    this.isTakeaway,
   });
   
   @override
-  List<Object> get props => [paymentMethod, paymentChannel ?? '', amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100];
+  List<Object> get props => [paymentMethod, paymentChannel ?? '', amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100, tableId ?? -1, isTakeaway ?? false];
 }
 
 class ScanBarcode extends PosEvent {
@@ -136,7 +140,8 @@ class PosState extends Equatable {
   final List<ProductModel> filteredProducts;
   final List<CategoryModel> categories; 
   final List<CustomerModel> customers; 
-  final List<Map<String, dynamic>> employees; // NEW
+  final List<Map<String, dynamic>> employees; 
+  final List<Map<String, dynamic>> tables; // NEW
   final List<CartItem> cartItems;
   final int selectedCategoryId; 
   final String searchQuery;
@@ -151,7 +156,8 @@ class PosState extends Equatable {
     this.filteredProducts = const [],
     this.categories = const [],
     this.customers = const [], 
-    this.employees = const [], // NEW
+    this.employees = const [], 
+    this.tables = const [], // NEW
     this.cartItems = const [],
     this.selectedCategoryId = 0,
     this.searchQuery = '',
@@ -171,7 +177,8 @@ class PosState extends Equatable {
     List<ProductModel>? filteredProducts,
     List<CategoryModel>? categories,
     List<CustomerModel>? customers, 
-    List<Map<String, dynamic>>? employees, // NEW
+    List<Map<String, dynamic>>? employees, 
+    List<Map<String, dynamic>>? tables, 
     List<CartItem>? cartItems,
     int? selectedCategoryId,
     String? searchQuery,
@@ -187,6 +194,7 @@ class PosState extends Equatable {
       categories: categories ?? this.categories,
       customers: customers ?? this.customers, 
       employees: employees ?? this.employees,
+      tables: tables ?? this.tables,
       cartItems: cartItems ?? this.cartItems,
       selectedCategoryId: selectedCategoryId ?? this.selectedCategoryId,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -199,7 +207,7 @@ class PosState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction, pendingOrders];
+  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, tables, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction, pendingOrders];
 }
 
 // Bloc
@@ -233,15 +241,17 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     // Load Products & Categories
     final productsResult = await productRepository.getProducts();
     final categoriesResult = await productRepository.getCategories();
-    final customersResult = await customerRepository.getCustomers(); // Fetch customers
-    final employeesResult = await customerRepository.getEmployees(); // Fetch employees
-
+    final customersResult = await customerRepository.getCustomers(); 
+    final employeesResult = await customerRepository.getEmployees(); 
+    final tablesResult = await customerRepository.getTables(); // NEW
+    
     final products = productsResult.getOrElse(() => []);
     final categories = categoriesResult.getOrElse(() => []);
-    final customers = customersResult.getOrElse(() => []); // List<CustomerModel>
-    final employees = employeesResult.getOrElse(() => []); // List<Map<String,dynamic>>
+    final customers = customersResult.getOrElse(() => []); 
+    final employees = employeesResult.getOrElse(() => []); 
+    final tables = tablesResult.getOrElse(() => []); // NEW
     
-    print('DEBUG: PosBloc Loaded ${customers.length} Customers');
+    print('DEBUG: PosBloc Loaded ${customers.length} Customers, ${tables.length} Tables');
     
     emit(state.copyWith(
       isLoading: false,
@@ -250,6 +260,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       categories: categories,
       customers: customers,
       employees: employees,
+      tables: tables, // NEW
       isSuccess: false, // Reset transient flags
       error: null,
     ));
@@ -368,6 +379,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       'points_redeemed': event.pointsRedeemed,
       'note': event.note,
       'created_at': transactionData['created_at'],
+      'table_id': event.tableId,
+      'is_takeaway': event.isTakeaway,
     };
 
     final result = await transactionRepository.submitTransaction(apiData);

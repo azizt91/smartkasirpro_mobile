@@ -69,9 +69,12 @@ class _KitchenViewState extends State<KitchenView> {
       body: BlocConsumer<KitchenBloc, KitchenState>(
         listener: (context, state) {
           if (state.error != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.error!), backgroundColor: Colors.red),
-            );
+            // Prevent showing background errors repeatedly
+            if (ModalRoute.of(context)?.isCurrent == true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.error!), backgroundColor: Colors.red),
+              );
+            }
           }
         },
         builder: (context, state) {
