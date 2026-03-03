@@ -23,6 +23,8 @@ class TransactionModel extends Equatable {
   });
 
   String? get customerName => payload['customer_name'] as String?;
+  String get paymentStatus => payload['payment_status'] as String? ?? 'paid';
+  String get orderStatus => payload['order_status'] as String? ?? 'completed';
 
   double _parseDouble(dynamic value) {
     if (value is num) return value.toDouble();

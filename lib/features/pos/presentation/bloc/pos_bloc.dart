@@ -462,10 +462,11 @@ class PosBloc extends Bloc<PosEvent, PosState> {
             categoryId: 0,
             name: raw['name'],
             type: raw['type'] ?? 'barang',
+            purchasePrice: 0.0,
             sellingPrice: (raw['price'] as num).toDouble(),
             stock: 999, // Bypass stock for unknown
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+            minimumStock: 0,
+            isLowStock: false,
           )
         );
         newCartItems.add(CartItem(product: product, quantity: raw['qty'] ?? 1));

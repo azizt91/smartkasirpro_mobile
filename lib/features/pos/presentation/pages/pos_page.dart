@@ -9,6 +9,7 @@ import 'package:mobile_app/features/product/data/models/category_model.dart';
 import '../../../../core/utils/receipt_builder.dart'; // Import
 import '../widgets/payment_pending_dialog.dart'; // PG Dialog
 import '../../../../core/services/printer_service.dart'; // Import
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../widgets/success_dialog.dart'; // Import
 import '../widgets/pending_orders_sheet.dart'; // NEW: Import Pending Orders Sheet

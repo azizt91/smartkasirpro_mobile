@@ -14,6 +14,7 @@ import 'package:mobile_app/features/stock/presentation/bloc/stock_bloc.dart'; //
 import 'package:mobile_app/core/services/notification_service.dart'; // Import NotificationService
 import 'package:mobile_app/features/auth/presentation/bloc/auth_bloc.dart'; // Import AuthBloc
 import 'package:mobile_app/features/auth/presentation/bloc/auth_event.dart'; // Import AuthEvent
+import 'package:mobile_app/features/auth/presentation/bloc/auth_state.dart'; // Import AuthState
 import 'package:mobile_app/features/notification/presentation/bloc/notification_bloc.dart'; // Import
 import 'package:mobile_app/features/notification/presentation/bloc/notification_event.dart'; // Import
 import 'package:firebase_messaging/firebase_messaging.dart'; // Import
