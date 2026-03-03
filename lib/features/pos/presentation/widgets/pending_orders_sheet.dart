@@ -19,8 +19,12 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
   }
 
   void _bukaProsesPesanan(Map<String, dynamic> order) {
-    context.read<PosBloc>().add(BukaProsesPesanan(order));
-    Navigator.pop(context); // Close the sheet
+    final bloc = context.read<PosBloc>();
+    Navigator.pop(context); // Close the sheet first
+    // Dispatch after pop so the POS page's BlocBuilder processes the new state
+    Future.microtask(() {
+      bloc.add(BukaProsesPesanan(order));
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Pesanan ${order['transaction_code']} dimasukkan ke keranjang'),

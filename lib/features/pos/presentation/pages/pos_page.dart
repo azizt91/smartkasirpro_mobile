@@ -97,7 +97,79 @@ class _PosViewState extends State<PosView> {
   Widget build(BuildContext context) {
     final isTablet = _isTabletLandscape(context);
 
-    return Scaffold(
+    return BlocListener<PosBloc, PosState>(
+      listener: (context, state) {
+        if (state.isSuccess && isTablet) {
+          final lastTransaction = state.lastTransaction;
+
+          // Check if this is a Payment Gateway (pending) transaction
+          if (lastTransaction != null && lastTransaction['payment'] != null) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => PaymentPendingDialog(
+                transaction: lastTransaction,
+                payment: Map<String, dynamic>.from(lastTransaction['payment']),
+                onDismiss: () {
+                  Navigator.pop(context);
+                  context.read<PosBloc>().add(ClearCart());
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Transaksi pending. Status akan otomatis berubah saat pelanggan membayar.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                },
+              ),
+            );
+          } else {
+            // Normal transaction: show Success Dialog
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => SuccessDialog(
+                onPrint: () async {
+                   if (lastTransaction != null) {
+                      final receiptBuilder = ReceiptBuilder();
+                      final authState = context.read<AuthBloc>().state;
+                      Map<String, dynamic> settings = {};
+                      String userName = 'Kasir';
+                      if (authState is AuthAuthenticated) {
+                         settings = authState.user.settings;
+                         userName = authState.user.name;
+                      }
+                      final items = lastTransaction['items'] as List<dynamic>;
+                      final printData = Map<String, dynamic>.from(lastTransaction);
+                      printData['user_name'] = userName;
+                      try {
+                          await receiptBuilder.printReceipt(printData, settings, items);
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             const SnackBar(content: Text('Sedang mencetak...')),
+                           );
+                      } catch (e) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             SnackBar(content: Text('Gagal mencetak: $e')),
+                           );
+                      }
+                   }
+                   Navigator.pop(context);
+                   context.read<PosBloc>().add(ClearCart());
+                },
+                onClose: () {
+                   Navigator.pop(context);
+                   context.read<PosBloc>().add(ClearCart());
+                },
+              ),
+            );
+          }
+        }
+        if (state.error != null && isTablet) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.error!), backgroundColor: Colors.red),
+          );
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Point of Sale', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF1A1A2E))),
         actions: [
@@ -190,6 +262,7 @@ class _PosViewState extends State<PosView> {
       ),
       // Bottom cart bar only on mobile
       bottomNavigationBar: isTablet ? null : _buildBottomCartBar(context),
+    ),
     );
   }
 
