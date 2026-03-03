@@ -455,7 +455,10 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   Future<void> _onFetchPendingOrders(FetchPendingOrders event, Emitter<PosState> emit) async {
     final result = await transactionRepository.getPendingOrders();
     result.fold(
-      (failure) => emit(state.copyWith(error: failure.message)), // Just emit error
+      (failure) {
+        // Silently ignore background polling errors to avoid spamming SnackBars
+        print('DEBUG: FetchPendingOrders failed silently: ${failure.message}');
+      },
       (orders) => emit(state.copyWith(pendingOrders: orders))
     );
   }

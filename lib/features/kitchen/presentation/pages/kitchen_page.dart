@@ -33,7 +33,7 @@ class _KitchenViewState extends State<KitchenView> {
     // Auto-refresh every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
-        context.read<KitchenBloc>().add(LoadKitchenOrders());
+        context.read<KitchenBloc>().add(LoadKitchenOrders(isAutoRefresh: true));
       }
     });
   }

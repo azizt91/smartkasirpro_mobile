@@ -8,7 +8,12 @@ abstract class KitchenEvent extends Equatable {
   List<Object> get props => [];
 }
 
-class LoadKitchenOrders extends KitchenEvent {}
+class LoadKitchenOrders extends KitchenEvent {
+  final bool isAutoRefresh;
+  LoadKitchenOrders({this.isAutoRefresh = false});
+  @override
+  List<Object> get props => [isAutoRefresh];
+}
 
 class UpdateOrderStatus extends KitchenEvent {
   final String transactionCode;
@@ -58,11 +63,21 @@ class KitchenBloc extends Bloc<KitchenEvent, KitchenState> {
   }
 
   Future<void> _onLoadKitchenOrders(LoadKitchenOrders event, Emitter<KitchenState> emit) async {
-    emit(state.copyWith(isLoading: true, error: null));
+    // Only show loading spinner for user-initiated refresh (not auto-refresh)
+    if (!event.isAutoRefresh) {
+      emit(state.copyWith(isLoading: true, error: null));
+    }
     final result = await transactionRepository.getKitchenOrders();
     
     result.fold(
-      (failure) => emit(state.copyWith(isLoading: false, error: failure.message)),
+      (failure) {
+        // Silently ignore background auto-refresh errors to avoid spamming user
+        if (event.isAutoRefresh) {
+          // Keep existing data, don't emit error
+          return;
+        }
+        emit(state.copyWith(isLoading: false, error: failure.message));
+      },
       (orders) => emit(state.copyWith(isLoading: false, orders: orders)),
     );
   }
