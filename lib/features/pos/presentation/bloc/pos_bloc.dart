@@ -95,6 +95,12 @@ class BukaProsesPesanan extends PosEvent {
   @override
   List<Object> get props => [order];
 }
+class CancelPendingOrder extends PosEvent {
+  final String transactionCode;
+  CancelPendingOrder(this.transactionCode);
+  @override
+  List<Object> get props => [transactionCode];
+}
 
 // States
 class CartItem extends Equatable {
@@ -218,6 +224,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     on<AddCustomer>(_onAddCustomer);
     on<FetchPendingOrders>(_onFetchPendingOrders);
     on<BukaProsesPesanan>(_onBukaProsesPesanan);
+    on<CancelPendingOrder>(_onCancelPendingOrder);
   }
 
   Future<void> _onLoadData(LoadPosData event, Emitter<PosState> emit) async {
@@ -469,8 +476,17 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     emit(state.copyWith(
       cartItems: newCartItems,
-      // Attempt to map customer name to existing customer ID if found
-      // Alternatively, the UI will just display it or PosPage can handle it via state
     ));
+  }
+
+  Future<void> _onCancelPendingOrder(CancelPendingOrder event, Emitter<PosState> emit) async {
+    final result = await transactionRepository.updateOrderStatus(event.transactionCode, 'cancelled');
+    result.fold(
+      (failure) => emit(state.copyWith(error: failure.message)),
+      (_) {
+         // Reload orders if cancel was successful
+         add(FetchPendingOrders());
+      }
+    );
   }
 }

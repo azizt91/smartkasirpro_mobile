@@ -29,6 +29,37 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
     );
   }
 
+  void _batalkanPesanan(Map<String, dynamic> order) {
+    showDialog(
+      context: context,
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          title: const Text('Tolak Pesanan?'),
+          content: Text('Apakah Anda yakin ingin membatalkan pesanan ${order['transaction_code']} dari Meja ${order['table_name'] ?? '-'}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Kembali', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.read<PosBloc>().add(CancelPendingOrder(order['transaction_code']));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Pesanan ${order['transaction_code']} berhasil dibatalkan'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              },
+              child: const Text('Ya, Batalkan', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -326,24 +357,45 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
             ),
           ),
           
-          // Action Button
+          // Action Buttons
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: ElevatedButton(
-              onPressed: () => _bukaProsesPesanan(order),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1B9C5E),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shopping_cart_checkout, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text('Buka & Proses Pesanan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
-                ],
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: OutlinedButton(
+                    onPressed: () => _batalkanPesanan(order),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Batalkan', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 5,
+                  child: ElevatedButton(
+                    onPressed: () => _bukaProsesPesanan(order),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1B9C5E),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shopping_cart_checkout, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text('Buka & Proses', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
