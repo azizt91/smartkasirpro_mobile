@@ -66,6 +66,10 @@ import 'package:mobile_app/features/others/presentation/bloc/customer_bloc.dart'
 // Kitchen
 import 'package:mobile_app/features/kitchen/presentation/bloc/kitchen_bloc.dart';
 
+// Table Management
+import 'package:mobile_app/features/table/presentation/bloc/table_bloc.dart' as mobile_app_table;
+import 'package:mobile_app/features/table/data/repositories/table_repository.dart' as mobile_app_table_repo;
+
 // Notification Imports
 import 'package:mobile_app/features/notification/data/datasources/notification_remote_data_source.dart';
 import 'package:mobile_app/features/notification/data/repositories/notification_repository.dart';
@@ -176,4 +180,7 @@ Future<void> init() async {
   sl.registerFactory(() => NotificationBloc(repository: sl()));
   sl.registerLazySingleton<NotificationRemoteDataSource>(() => NotificationRemoteDataSourceImpl(dio: sl()));
   sl.registerLazySingleton<NotificationRepository>(() => NotificationRepositoryImpl(remoteDataSource: sl()));
+// -- Table Management --
+  sl.registerFactory(() => mobile_app_table.TableBloc(repository: sl()));
+  sl.registerLazySingleton<mobile_app_table_repo.TableRepository>(() => mobile_app_table_repo.TableRepository(dio: sl(), secureStorage: sl()));
 }

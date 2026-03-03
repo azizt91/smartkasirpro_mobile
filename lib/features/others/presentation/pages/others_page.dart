@@ -10,12 +10,13 @@ import 'package:mobile_app/features/history/presentation/pages/history_page.dart
 import 'package:mobile_app/features/others/presentation/pages/customer_page.dart';
 import 'package:mobile_app/features/expense/presentation/pages/expense_page.dart';
 import 'package:mobile_app/features/expense/data/repositories/expense_repository_impl.dart';
-import 'package:mobile_app/features/expense/domain/repositories/expense_repository.dart'; // Add Interface
+import 'package:mobile_app/features/expense/domain/repositories/expense_repository.dart';
 import 'package:mobile_app/features/product/presentation/bloc/product_bloc.dart';
 import 'package:mobile_app/features/product/data/repositories/sync_repository_impl.dart';
 import 'package:mobile_app/features/transaction/data/repositories/transaction_repository_impl.dart';
 import 'package:mobile_app/core/services/shift_service.dart';
 import 'package:mobile_app/features/pos/presentation/widgets/shift_dialog.dart';
+import 'package:mobile_app/features/table/presentation/pages/table_management_page.dart';
 
 
 class OthersPage extends StatelessWidget {
@@ -23,119 +24,137 @@ class OthersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
-      appBar: AppBar(
-        title: const Text('Lainnya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.textDark)),
-        backgroundColor: AppColors.surfaceLight,
-        elevation: 0,
-        centerTitle: false,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        bool isResto = false;
+        if (authState is AuthAuthenticated) {
+           isResto = authState.user.settings['business_mode'] == 'resto';
+        }
 
+        return Scaffold(
+          backgroundColor: AppColors.backgroundLight,
+          appBar: AppBar(
+            title: const Text('Lainnya', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.textDark)),
+            backgroundColor: AppColors.surfaceLight,
+            elevation: 0,
+            centerTitle: false,
+            iconTheme: const IconThemeData(color: Colors.black),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
 
-            // Transaksi Section
-            _buildSectionHeader('Transaksi'),
-            _buildSectionContainer([
-              _buildMenuItem(
-                context,
-                icon: Icons.history,
-                label: 'Riwayat Transaksi',
-                 iconColor: Colors.blue,
-                 bgColor: Colors.blue.withOpacity(0.1),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryPage())),
-              ),
-              _buildDivider(),
-              _buildMenuItem(
-                context,
-                icon: Icons.people_alt,
-                label: 'Pelanggan',
-                iconColor: Colors.orange,
-                 bgColor: Colors.orange.withOpacity(0.1),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CustomerPage())),
-              ),
-              _buildDivider(),
-              _buildMenuItem(
-                context,
-                icon: Icons.account_balance_wallet,
-                label: 'Pengeluaran Operasional',
-                iconColor: Colors.purple,
-                 bgColor: Colors.purple.withOpacity(0.1),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpensePage())),
-              ),
-              _buildDivider(),
-              _buildMenuItem(
-                context,
-                icon: Icons.access_time_filled,
-                label: 'Tutup Shift Kasir',
-                iconColor: Colors.teal,
-                bgColor: Colors.teal.withOpacity(0.1),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => CloseShiftDialog(
-                      shiftService: GetIt.instance<ShiftService>(),
-                      onShiftClosed: () {},
+                // Transaksi Section
+                _buildSectionHeader('Transaksi'),
+                _buildSectionContainer([
+                  if (isResto) ...[
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.table_restaurant,
+                      label: 'Manajemen Meja',
+                      iconColor: Colors.deepOrange,
+                      bgColor: Colors.deepOrange.withOpacity(0.1),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TableManagementPage())),
                     ),
-                  );
-                },
-              ),
+                    _buildDivider(),
+                  ],
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.history,
+                    label: 'Riwayat Transaksi',
+                    iconColor: Colors.blue,
+                    bgColor: Colors.blue.withOpacity(0.1),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryPage())),
+                  ),
+                  _buildDivider(),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.people_alt,
+                    label: 'Pelanggan',
+                    iconColor: Colors.orange,
+                    bgColor: Colors.orange.withOpacity(0.1),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CustomerPage())),
+                  ),
+                  _buildDivider(),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.account_balance_wallet,
+                    label: 'Pengeluaran Operasional',
+                    iconColor: Colors.purple,
+                    bgColor: Colors.purple.withOpacity(0.1),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ExpensePage())),
+                  ),
+                  _buildDivider(),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.access_time_filled,
+                    label: 'Tutup Shift Kasir',
+                    iconColor: Colors.teal,
+                    bgColor: Colors.teal.withOpacity(0.1),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => CloseShiftDialog(
+                          shiftService: GetIt.instance<ShiftService>(),
+                          onShiftClosed: () {},
+                        ),
+                      );
+                    },
+                  ),
+                ]),
+                const SizedBox(height: 24),
 
-            ]),
-            const SizedBox(height: 24),
+                // Pengaturan Section
+                _buildSectionHeader('Pengaturan'),
+                _buildSectionContainer([
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.print,
+                    label: 'Pengaturan Printer',
+                    iconColor: Colors.grey.shade700,
+                    bgColor: Colors.grey.shade200,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrinterSettingsPage())),
+                  ),
+                  _buildDivider(),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.sync,
+                    label: 'Sinkronisasi Data',
+                    iconColor: Colors.blue.shade700,
+                    bgColor: Colors.blue.shade50,
+                    onTap: () => _showSyncDialog(context),
+                  ),
+                ]),
+                const SizedBox(height: 24),
 
-            // Pengaturan Section
-            _buildSectionHeader('Pengaturan'),
-            _buildSectionContainer([
-              _buildMenuItem(
-                context,
-                icon: Icons.print,
-                label: 'Pengaturan Printer',
-                iconColor: Colors.grey.shade700,
-                 bgColor: Colors.grey.shade200,
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrinterSettingsPage())),
-              ),
-              _buildDivider(),
-              _buildMenuItem(
-                context,
-                icon: Icons.sync,
-                label: 'Sinkronisasi Data',
-                iconColor: Colors.blue.shade700,
-                bgColor: Colors.blue.shade50,
-                onTap: () => _showSyncDialog(context),
-              ),
-            ]),
-            const SizedBox(height: 24),
-
-            // Akun Section
-            _buildSectionHeader('Akun'),
-             _buildSectionContainer([
-              _buildMenuItem(
-                context,
-                icon: Icons.logout,
-                label: 'Keluar',
-                textColor: Colors.red,
-                iconColor: Colors.red,
-                 bgColor: Colors.red.withOpacity(0.1),
-                onTap: () {
-                   context.read<AuthBloc>().add(AuthLogoutRequested());
-                },
-              ),
-            ]),
-            
-            const SizedBox(height: 40),
-            Center(
-               child: Text('Smart Kasir Pro v1.0.0', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                // Akun Section
+                _buildSectionHeader('Akun'),
+                _buildSectionContainer([
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.logout,
+                    label: 'Keluar',
+                    textColor: Colors.red,
+                    iconColor: Colors.red,
+                    bgColor: Colors.red.withOpacity(0.1),
+                    onTap: () {
+                       context.read<AuthBloc>().add(AuthLogoutRequested());
+                    },
+                  ),
+                ]),
+                
+                const SizedBox(height: 40),
+                Center(
+                   child: Text('Smart Kasir Pro v1.0.0', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
