@@ -131,9 +131,8 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   @override
   Future<void> updateOrderStatus(String code, String status) async {
     try {
-      final response = await dio.put('/pos/api/orders/update-status', data: {
-        'transaction_code': code,
-        'order_status': status,
+      final response = await dio.post('/pos/api/orders/$code/status', data: {
+        'status': status,
       });
       if (response.statusCode != 200) {
         throw ServerFailure('Gagal update status pesanan');
