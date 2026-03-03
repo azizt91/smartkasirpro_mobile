@@ -67,120 +67,123 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.9,
       builder: (_, controller) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFFF8F9FA),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+        return Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
-                      child: const Icon(Icons.notifications_active, color: Colors.amber, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Antrean Pesanan Masuk',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Pesanan dari pelanggan via QR Code',
-                            style: TextStyle(color: Colors.grey, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.grey),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              // List
-              Expanded(
-                child: BlocBuilder<PosBloc, PosState>(
-                  builder: (context, state) {
-                    if (state.isLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (state.error != null && state.pendingOrders.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                            const SizedBox(height: 16),
-                            Text(state.error!, style: const TextStyle(color: Colors.red)),
-                            TextButton(
-                              onPressed: () => context.read<PosBloc>().add(FetchPendingOrders()),
-                              child: const Text('Coba Lagi'),
-                            )
-                          ],
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                    }
-
-                    if (state.pendingOrders.isEmpty) {
-                      return Center(
+                        child: const Icon(Icons.notifications_active, color: Colors.amber, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.inbox, size: 64, color: Colors.grey.shade300),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Belum ada pesanan masuk',
-                              style: TextStyle(color: Colors.grey, fontSize: 16),
+                            Text(
+                              'Antrean Pesanan Masuk',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Pesanan dari pelanggan via QR Code',
+                              style: TextStyle(color: Colors.grey, fontSize: 13),
                             ),
                           ],
                         ),
-                      );
-                    }
-
-                    return RefreshIndicator(
-                      onRefresh: () async {
-                        context.read<PosBloc>().add(FetchPendingOrders());
-                      },
-                      child: ListView.builder(
-                        controller: controller,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: state.pendingOrders.length,
-                        itemBuilder: (context, index) {
-                          final order = state.pendingOrders[index];
-                          return _buildOrderCard(order);
-                        },
                       ),
-                    );
-                  },
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+
+                // List
+                Expanded(
+                  child: BlocBuilder<PosBloc, PosState>(
+                    builder: (context, state) {
+                      if (state.isLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (state.error != null && state.pendingOrders.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                              const SizedBox(height: 16),
+                              Text(state.error!, style: const TextStyle(color: Colors.red)),
+                              TextButton(
+                                onPressed: () => context.read<PosBloc>().add(FetchPendingOrders()),
+                                child: const Text('Coba Lagi'),
+                              )
+                            ],
+                          ),
+                        );
+                      }
+
+                      if (state.pendingOrders.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inbox, size: 64, color: Colors.grey.shade300),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Belum ada pesanan masuk',
+                                style: TextStyle(color: Colors.grey, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return RefreshIndicator(
+                        onRefresh: () async {
+                          context.read<PosBloc>().add(FetchPendingOrders());
+                        },
+                        child: ListView.builder(
+                          controller: controller, // Give the Draggable controller to the list
+                          padding: const EdgeInsets.all(16),
+                          itemCount: state.pendingOrders.length,
+                          itemBuilder: (context, index) {
+                            final order = state.pendingOrders[index];
+                            return _buildOrderCard(order);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
