@@ -17,6 +17,7 @@ import 'package:mobile_app/features/transaction/data/repositories/transaction_re
 import 'package:mobile_app/core/services/shift_service.dart';
 import 'package:mobile_app/features/pos/presentation/widgets/shift_dialog.dart';
 import 'package:mobile_app/features/table/presentation/pages/table_management_page.dart';
+import 'package:mobile_app/features/settings/presentation/pages/notification_settings_page.dart';
 
 
 class OthersPage extends StatelessWidget {
@@ -116,6 +117,15 @@ class OthersPage extends StatelessWidget {
                     iconColor: Colors.grey.shade700,
                     bgColor: Colors.grey.shade200,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PrinterSettingsPage())),
+                  ),
+                  _buildDivider(),
+                  _buildMenuItem(
+                    context,
+                    icon: Icons.notifications_active,
+                    label: 'Nada Notifikasi',
+                    iconColor: Colors.amber.shade700,
+                    bgColor: Colors.amber.shade50,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationSettingsPage())),
                   ),
                   _buildDivider(),
                   _buildMenuItem(
