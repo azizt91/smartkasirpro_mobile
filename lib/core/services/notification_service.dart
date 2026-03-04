@@ -5,13 +5,81 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../injection_container.dart' as di;
 import '../../features/auth/domain/repositories/auth_repository.dart';
 
-// Top-level function required for background messages
+/// ──────────────────────────────────────────────────────────
+/// BACKGROUND HANDLER  (must be top-level)
+/// ──────────────────────────────────────────────────────────
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('Background message received: ${message.data}');
+  debugPrint('FCM BG: message received: ${message.data}');
+
+  // Data-only messages are NOT auto-displayed by Android.
+  // We must show a local notification ourselves.
+  final data = message.data;
+  if (data.isEmpty) return;
+
+  final title = data['title'] ?? 'Notifikasi Baru';
+  final body  = data['body']  ?? '';
+  final notificationType = data['notification_type'] ?? 'default';
+
+  // Read the user's sound preference for this category
+  final prefs = await SharedPreferences.getInstance();
+
+  String category;
+  switch (notificationType) {
+    case 'order': category = kCategoryOrder; break;
+    case 'shift': category = kCategoryShift; break;
+    case 'audit': category = kCategoryAudit; break;
+    default:      category = kCategoryDefault;
+  }
+
+  final soundKey = prefs.getString('notif_sound_$category') ??
+                   kDefaultSounds[category] ??
+                   kDefaultSounds[kCategoryDefault]!;
+
+  final isSilent = soundKey == 'silent';
+
+  final plugin = FlutterLocalNotificationsPlugin();
+
+  // Ensure initialization (background isolate may not have run init)
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await plugin.initialize(const InitializationSettings(android: androidInit));
+
+  final channelId = 'channel_$soundKey';
+  final soundLabel = _soundLabels[soundKey] ?? soundKey;
+
+  await plugin.show(
+    DateTime.now().millisecondsSinceEpoch.remainder(100000),
+    title,
+    body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId,
+        'Notifikasi - $soundLabel',
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: !isSilent,
+        enableVibration: !isSilent,
+        sound: isSilent ? null : RawResourceAndroidNotificationSound('notif_$soundKey'),
+        icon: '@mipmap/ic_launcher',
+      ),
+    ),
+  );
 }
 
-/// Available notification sound options
+/// Quick label map for background handler (can't access NotifSound class easily)
+const Map<String, String> _soundLabels = {
+  'order_alert': 'Pesanan Masuk',
+  'chime': 'Lonceng',
+  'ding': 'Ding',
+  'cash_register': 'Mesin Kasir',
+  'bell': 'Bel Toko',
+  'silent': 'Diam',
+};
+
+/// ──────────────────────────────────────────────────────────
+/// Sound definitions & category constants
+/// ──────────────────────────────────────────────────────────
+
 class NotifSound {
   final String key;
   final String label;
@@ -29,257 +97,225 @@ const List<NotifSound> availableSounds = [
   NotifSound(key: 'silent', label: 'Diam', description: 'Tanpa suara'),
 ];
 
-/// Notification categories that can be independently configured
-const String kCategoryOrder = 'order';
-const String kCategoryShift = 'shift';
-const String kCategoryAudit = 'audit';
+const String kCategoryOrder   = 'order';
+const String kCategoryShift   = 'shift';
+const String kCategoryAudit   = 'audit';
 const String kCategoryDefault = 'default';
 
-/// Default sounds per category
 const Map<String, String> kDefaultSounds = {
-  kCategoryOrder: 'order_alert',
-  kCategoryShift: 'chime',
-  kCategoryAudit: 'ding',
+  kCategoryOrder:   'order_alert',
+  kCategoryShift:   'chime',
+  kCategoryAudit:   'ding',
   kCategoryDefault: 'order_alert',
 };
 
+/// ──────────────────────────────────────────────────────────
+/// NotificationService  (singleton)
+/// ──────────────────────────────────────────────────────────
+
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
-
-  factory NotificationService() {
-    return _instance;
-  }
-
+  factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
 
-  /// Map of soundKey -> channelId
-  String _channelId(String soundKey) => 'channel_$soundKey';
+  String _channelId(String key) => 'channel_$key';
 
+  /// Must be called AFTER Firebase.initializeApp() and DI init.
   Future<void> initialize() async {
-    // 1. Request Permission
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
+    // ── 1. Request permission ──
+    final settings = await _fcm.requestPermission(
+      alert: true, badge: true, sound: true,
+    );
+    debugPrint('FCM: permission=${settings.authorizationStatus}');
+
+    // Keep these for iOS (when the OS would auto-display)
+    await _fcm.setForegroundNotificationPresentationOptions(
+      alert: true, badge: true, sound: true,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('FCM: User granted permission');
-    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-      debugPrint('FCM: User granted provisional permission');
-    } else {
-      debugPrint('FCM: User declined or has not accepted permission');
-    }
+    // ── 2. Local notification init ──
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    await _local.initialize(const InitializationSettings(android: androidInit));
 
-    // Allow FCM to show notifications even when app is in foreground
-    await _firebaseMessaging.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    // 2. Initialize Local Notifications (for foreground)
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    final InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
-
-    await _localNotifications.initialize(initializationSettings);
-
-    // 3. Create all notification channels (one per sound)
+    // ── 3. Create ALL sound channels ──
     await _createAllChannels();
 
-    // 4. Set Background Message Handler
+    // ── 4. Background handler ──
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    // 5. Handle Foreground Messages
+    // ── 5. FOREGROUND handler ──
+    // Because we send DATA-ONLY from backend, message.notification is null.
+    // We always go through _showDataNotification().
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('FCM: Got a message whilst in the foreground!');
-      debugPrint('FCM: Message data: ${message.data}');
-
+      debugPrint('FCM FG: data=${message.data}');
       if (message.notification != null) {
-        debugPrint('FCM: Notification title: ${message.notification!.title}');
-        _showLocalNotification(message);
+        // Fallback: if someone sends a notification payload, handle it
+        _showNotificationPayload(message);
       } else if (message.data.isNotEmpty) {
-        debugPrint('FCM: Data-only message, showing local notification');
         _showDataNotification(message);
       }
     });
 
-    // 6. Handle notification tap when app is in background/terminated
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('FCM: Notification tapped (from background): ${message.data}');
+    // ── 6. Tap handlers ──
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage msg) {
+      debugPrint('FCM: tap from background: ${msg.data}');
     });
-
-    // Check if app was opened from a terminated state via notification
-    RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
-    if (initialMessage != null) {
-      debugPrint('FCM: App opened from terminated state via notification: ${initialMessage.data}');
+    final initial = await _fcm.getInitialMessage();
+    if (initial != null) {
+      debugPrint('FCM: opened from terminated: ${initial.data}');
     }
 
-    // 7. Get Token (to send to server)
-    String? token = await _firebaseMessaging.getToken();
-    debugPrint("FCM Token: $token");
-    
-    if (token != null) {
-      try {
-        final authRepository = di.sl<AuthRepository>(); 
-        await authRepository.updateFcmToken(token);
-        debugPrint("FCM Token sent to backend successfully");
-      } catch (e) {
-        debugPrint("Failed to sync FCM token: $e");
-      }
-    }
-    
-    // Listen for token refresh
-    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
-       debugPrint("FCM Token Refreshed: $newToken");
-       try {
-          final authRepository = di.sl<AuthRepository>();
-          await authRepository.updateFcmToken(newToken);
-          debugPrint("Refreshed FCM Token sent to backend");
-       } catch (e) {
-          debugPrint("Failed to sync new FCM token: $e");
-       }
+    // ── 7. Token sync ──
+    await _syncToken();
+    _fcm.onTokenRefresh.listen((newToken) async {
+      debugPrint('FCM: token refreshed');
+      await _sendTokenToServer(newToken);
     });
   }
 
-  /// Create all notification channels (one per sound option)
+  // ────────── Channel creation ──────────
+
   Future<void> _createAllChannels() async {
-    final androidPlugin = _localNotifications
+    final android = _local
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    
-    if (androidPlugin == null) return;
+    if (android == null) return;
 
-    for (final sound in availableSounds) {
-      final isSilent = sound.key == 'silent';
-      final channel = AndroidNotificationChannel(
-        _channelId(sound.key),
-        'Notifikasi - ${sound.label}',
-        description: sound.description,
+    for (final s in availableSounds) {
+      final silent = s.key == 'silent';
+      await android.createNotificationChannel(AndroidNotificationChannel(
+        _channelId(s.key),
+        'Notifikasi - ${s.label}',
+        description: s.description,
         importance: Importance.max,
-        playSound: !isSilent,
-        enableVibration: !isSilent,
+        playSound: !silent,
+        enableVibration: !silent,
         showBadge: true,
-        sound: isSilent
-            ? null
-            : RawResourceAndroidNotificationSound('notif_${sound.key}'),
-      );
-      await androidPlugin.createNotificationChannel(channel);
+        sound: silent ? null : RawResourceAndroidNotificationSound('notif_${s.key}'),
+      ));
     }
-
-    // Also keep the default high_importance_channel as fallback
-    const fallbackChannel = AndroidNotificationChannel(
+    // Fallback channel (always keep)
+    await android.createNotificationChannel(const AndroidNotificationChannel(
       'high_importance_channel',
       'High Importance Notifications',
       importance: Importance.max,
       playSound: true,
       enableVibration: true,
       showBadge: true,
-    );
-    await androidPlugin.createNotificationChannel(fallbackChannel);
+    ));
   }
 
-  /// Get the user's preferred sound for a notification category
+  // ────────── Preference helpers ──────────
+
   Future<String> getSoundForCategory(String category) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('notif_sound_$category') ?? 
-           kDefaultSounds[category] ?? 
+    return prefs.getString('notif_sound_$category') ??
+           kDefaultSounds[category] ??
            kDefaultSounds[kCategoryDefault]!;
   }
 
-  /// Set the user's preferred sound for a notification category
   Future<void> setSoundForCategory(String category, String soundKey) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('notif_sound_$category', soundKey);
-    debugPrint('NotifSound: Set $category -> $soundKey');
+    debugPrint('NotifPref: $category -> $soundKey');
   }
 
-  /// Determine the notification category from message data
-  String _getCategoryFromMessage(RemoteMessage message) {
-    final type = message.data['notification_type'] ?? '';
-    switch (type) {
-      case 'order':
-        return kCategoryOrder;
-      case 'shift':
-        return kCategoryShift;
-      case 'audit':
-        return kCategoryAudit;
-      default:
-        return kCategoryDefault;
+  // ────────── Category routing ──────────
+
+  String _resolveCategory(RemoteMessage msg) {
+    switch (msg.data['notification_type'] ?? '') {
+      case 'order': return kCategoryOrder;
+      case 'shift': return kCategoryShift;
+      case 'audit': return kCategoryAudit;
+      default:      return kCategoryDefault;
     }
   }
 
-  /// Build AndroidNotificationDetails for the given sound key
-  AndroidNotificationDetails _buildAndroidDetails(String soundKey) {
-    final isSilent = soundKey == 'silent';
+  AndroidNotificationDetails _androidDetails(String soundKey) {
+    final silent = soundKey == 'silent';
     return AndroidNotificationDetails(
       _channelId(soundKey),
       'Notifikasi - ${availableSounds.firstWhere((s) => s.key == soundKey, orElse: () => availableSounds.first).label}',
       importance: Importance.max,
       priority: Priority.high,
-      playSound: !isSilent,
-      enableVibration: !isSilent,
-      sound: isSilent
-          ? null
-          : RawResourceAndroidNotificationSound('notif_$soundKey'),
+      playSound: !silent,
+      enableVibration: !silent,
+      sound: silent ? null : RawResourceAndroidNotificationSound('notif_$soundKey'),
       icon: '@mipmap/ic_launcher',
     );
   }
 
-  void _showLocalNotification(RemoteMessage message) {
-    RemoteNotification? notification = message.notification;
-
-    if (notification != null) {
-      final category = _getCategoryFromMessage(message);
-      getSoundForCategory(category).then((soundKey) {
-        _localNotifications.show(
-          notification.hashCode,
-          notification.title,
-          notification.body,
-          NotificationDetails(android: _buildAndroidDetails(soundKey)),
-        );
-      });
-    }
-  }
+  // ────────── Show notification (data-only) ──────────
 
   void _showDataNotification(RemoteMessage message) {
     final data = message.data;
     final title = data['title'] ?? 'Notifikasi Baru';
-    final body = data['body'] ?? '';
-    final category = _getCategoryFromMessage(message);
+    final body  = data['body']  ?? '';
+    final category = _resolveCategory(message);
 
     getSoundForCategory(category).then((soundKey) {
-      _localNotifications.show(
+      _local.show(
         DateTime.now().millisecondsSinceEpoch.remainder(100000),
         title,
         body,
-        NotificationDetails(android: _buildAndroidDetails(soundKey)),
+        NotificationDetails(android: _androidDetails(soundKey)),
       );
     });
   }
 
-  /// Preview a sound by showing a test notification
+  /// Fallback for any messages that still carry a [notification] payload
+  void _showNotificationPayload(RemoteMessage message) {
+    final n = message.notification!;
+    final category = _resolveCategory(message);
+
+    getSoundForCategory(category).then((soundKey) {
+      _local.show(
+        n.hashCode,
+        n.title,
+        n.body,
+        NotificationDetails(android: _androidDetails(soundKey)),
+      );
+    });
+  }
+
+  // ────────── Sound preview ──────────
+
   Future<void> previewSound(String soundKey) async {
-    final sound = availableSounds.firstWhere(
-      (s) => s.key == soundKey,
-      orElse: () => availableSounds.first,
-    );
-
-    await _localNotifications.show(
+    final label = availableSounds
+        .firstWhere((s) => s.key == soundKey, orElse: () => availableSounds.first)
+        .label;
+    await _local.show(
       DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      '🔔 Preview: ${sound.label}',
-      sound.description,
-      NotificationDetails(android: _buildAndroidDetails(soundKey)),
+      '🔔 Preview: $label',
+      'Ini contoh nada notifikasi',
+      NotificationDetails(android: _androidDetails(soundKey)),
     );
   }
 
-  Future<String?> getToken() async {
-    return await _firebaseMessaging.getToken();
+  // ────────── Token sync ──────────
+
+  Future<void> _syncToken() async {
+    try {
+      final token = await _fcm.getToken();
+      debugPrint('FCM Token: ${token?.substring(0, 20)}...');
+      if (token != null) await _sendTokenToServer(token);
+    } catch (e) {
+      debugPrint('FCM: token get failed: $e');
+    }
   }
+
+  Future<void> _sendTokenToServer(String token) async {
+    try {
+      final repo = di.sl<AuthRepository>();
+      await repo.updateFcmToken(token);
+      debugPrint('FCM: token synced to backend');
+    } catch (e) {
+      // Will be retried on next app open or token refresh
+      debugPrint('FCM: token sync failed (will retry): $e');
+    }
+  }
+
+  Future<String?> getToken() async => await _fcm.getToken();
 }

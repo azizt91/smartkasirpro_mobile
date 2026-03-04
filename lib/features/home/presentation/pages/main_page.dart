@@ -45,11 +45,12 @@ class _MainPageState extends State<MainPage> {
     // Sync FCM Token
     _setupNotifications();
 
-    // Listen for foreground messages to refresh badge
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    // Refresh notification badge when foreground messages arrive.
+    // notification_service.dart handles the actual display; we only
+    // need to update the unread-count badge here.
+    FirebaseMessaging.onMessage.listen((_) {
       if (mounted) {
         context.read<NotificationBloc>().add(RefreshNotifications());
-        // NotificationService (initialized in main.dart) already handles showing the banner.
       }
     });
   }
