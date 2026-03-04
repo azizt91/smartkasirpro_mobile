@@ -691,7 +691,7 @@ class _PaymentModalState extends State<PaymentModal> {
           )
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildMethodCard(String id, String label, IconData icon) {
