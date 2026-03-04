@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../injection_container.dart' as di;
 import '../../features/auth/domain/repositories/auth_repository.dart';
 
@@ -227,15 +228,24 @@ class NotificationService {
   // ────────── Sound preview ──────────
 
   Future<void> previewSound(String soundKey) async {
-    final label = availableSounds
-        .firstWhere((s) => s.key == soundKey, orElse: () => availableSounds.first)
-        .label;
-    await _local.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      '🔔 Preview: $label',
-      'Ini contoh nada notifikasi',
-      NotificationDetails(android: _androidDetails(soundKey)),
-    );
+    if (soundKey == 'silent') return;
+    try {
+      final player = AudioPlayer();
+      // Play directly from Android raw resources
+      await player.play(AssetSource('../res/raw/notif_$soundKey.mp3'));
+      // Auto-dispose after playback finishes
+      player.onPlayerComplete.listen((_) => player.dispose());
+    } catch (e) {
+      debugPrint('Preview sound error: $e');
+      // Fallback: try wav format
+      try {
+        final player = AudioPlayer();
+        await player.play(AssetSource('../res/raw/notif_$soundKey.wav'));
+        player.onPlayerComplete.listen((_) => player.dispose());
+      } catch (e2) {
+        debugPrint('Preview sound fallback error: $e2');
+      }
+    }
   }
 
   // ────────── Token sync ──────────

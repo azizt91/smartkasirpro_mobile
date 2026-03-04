@@ -63,6 +63,7 @@ dependencies:
   firebase_messaging: ^15.0.1 # Firebase Messaging
   flutter_local_notifications: ^17.2.2 # Local Notifications for foreground
   url_launcher: ^6.2.6 # Open payment URLs
+  audioplayers: ^6.4.0
 
 
 
