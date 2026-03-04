@@ -211,9 +211,12 @@ class _PaymentModalState extends State<PaymentModal> {
   Widget build(BuildContext context) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.white,
+        appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.grey),
           onPressed: () => Navigator.pop(context),
@@ -745,7 +748,7 @@ class _PaymentModalState extends State<PaymentModal> {
           // If already selected, maybe toggle off? Or just set. 
           // Let's set it. But if we want to "add" like before?
           // The previous logic was _addAmount. 
-          // If the user wants "Quick Amount" usually it means "Pay exactly this".
+          // If the user wants "Quick Amount" usually it means "I pay exactly this".
           // But the previous code was `_addAmount`.
           // "Uang Pas" sets exact. 
           // Let's make these buttons SET the amount, not add (unless it was intended to be "add bills").
@@ -813,114 +816,117 @@ class _CustomerSearchModalState extends State<_CustomerSearchModal> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<PosBloc, PosState>(
-      builder: (context, state) {
-        final customers = result_customers(state.customers, _query);
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: BlocBuilder<PosBloc, PosState>(
+        builder: (context, state) {
+          final customers = result_customers(state.customers, _query);
 
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.8,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    const Text('Pilih Pelanggan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                  ],
-                ),
-              ),
-              // Search
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Cari Nama / No. HP...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.8,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Text('Pilih Pelanggan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    ],
                   ),
-                  onChanged: (val) => setState(() => _query = val),
                 ),
-              ),
-              const SizedBox(height: 10),
-              // List
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: customers.length + 2, // +1 for "Tambah Baru", +1 for "Umum"
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                       return Card(
-                        key: const ValueKey('add_customer'),
-                        elevation: 0,
-                        color: Colors.blue.shade50,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.blue.shade100)),
-                        child: ListTile(
-                          leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.person_add, color: Colors.white)),
-                          title: const Text('Tambah Pelanggan Baru', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                          onTap: () {
-                             _showAddCustomerDialog(context);
-                          },
-                        ),
-                      );
-                    }
-                    if (index == 1) {
+                // Search
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Cari Nama / No. HP...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    ),
+                    onChanged: (val) => setState(() => _query = val),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // List
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: customers.length + 2, // +1 for "Tambah Baru", +1 for "Umum"
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                         return Card(
+                          key: const ValueKey('add_customer'),
+                          elevation: 0,
+                          color: Colors.blue.shade50,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.blue.shade100)),
+                          child: ListTile(
+                            leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.person_add, color: Colors.white)),
+                            title: const Text('Tambah Pelanggan Baru', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                            onTap: () {
+                               _showAddCustomerDialog(context);
+                            },
+                          ),
+                        );
+                      }
+                      if (index == 1) {
+                        return Card(
+                          key: const ValueKey('umum'),
+                          elevation: 0,
+                          color: Colors.grey.shade100,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
+                          child: ListTile(
+                            leading: const CircleAvatar(backgroundColor: Colors.grey, child: Icon(Icons.people, color: Colors.white)),
+                            title: const Text('Umum', style: TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: const Text('Tanpa data pelanggan'),
+                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                            onTap: () {
+                              widget.onSelect(null);
+                              Navigator.pop(context);
+                            },
+                          ),
+                        );
+                      }
+                      final customer = customers[index - 2];
                       return Card(
-                        key: const ValueKey('umum'),
-                        elevation: 0,
-                        color: Colors.grey.shade100,
+                        key: ValueKey('customer_${customer.id}'),
+                        elevation: 2,
+                        shadowColor: Colors.black12,
                         margin: const EdgeInsets.only(bottom: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade300)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         child: ListTile(
-                          leading: const CircleAvatar(backgroundColor: Colors.grey, child: Icon(Icons.people, color: Colors.white)),
-                          title: const Text('Umum', style: TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: const Text('Tanpa data pelanggan'),
-                          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFFE8F5E9),
+                            child: Text(customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF1B9C5E), fontWeight: FontWeight.bold)),
+                          ),
+                          title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: customer.phone != null 
+                               ? Row(children: [const Icon(Icons.phone, size: 12, color: Colors.grey), const SizedBox(width: 4), Text(customer.phone!, style: const TextStyle(fontSize: 12))])
+                               : null,
+                          trailing: const Icon(Icons.check_circle_outline, color: Color(0xFF1B9C5E)),
                           onTap: () {
-                            widget.onSelect(null);
+                            widget.onSelect(customer);
                             Navigator.pop(context);
                           },
                         ),
                       );
-                    }
-                    final customer = customers[index - 2];
-                    return Card(
-                      key: ValueKey('customer_${customer.id}'),
-                      elevation: 2,
-                      shadowColor: Colors.black12,
-                      margin: const EdgeInsets.only(bottom: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFFE8F5E9),
-                          child: Text(customer.name.isNotEmpty ? customer.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF1B9C5E), fontWeight: FontWeight.bold)),
-                        ),
-                        title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: customer.phone != null 
-                             ? Row(children: [const Icon(Icons.phone, size: 12, color: Colors.grey), const SizedBox(width: 4), Text(customer.phone!, style: const TextStyle(fontSize: 12))])
-                             : null,
-                        trailing: const Icon(Icons.check_circle_outline, color: Color(0xFF1B9C5E)),
-                        onTap: () {
-                          widget.onSelect(customer);
-                          Navigator.pop(context);
-                        },
-                      ),
-                    );
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
