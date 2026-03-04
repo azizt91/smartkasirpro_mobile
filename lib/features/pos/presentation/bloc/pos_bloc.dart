@@ -55,8 +55,9 @@ class SubmitTransaction extends PosEvent {
   final DateTime? transactionDate;
   final int? pointsRedeemed;
   final int? pointExchangeRate;
-  final int? tableId; // NEW
-  final bool? isTakeaway; // NEW
+  final int? tableId;
+  final bool? isTakeaway;
+  final String? pendingOrderCode;
 
   SubmitTransaction({
     required this.paymentMethod, 
@@ -70,10 +71,11 @@ class SubmitTransaction extends PosEvent {
     this.pointExchangeRate = 100,
     this.tableId,
     this.isTakeaway,
+    this.pendingOrderCode,
   });
   
   @override
-  List<Object> get props => [paymentMethod, paymentChannel ?? '', amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100, tableId ?? -1, isTakeaway ?? false];
+  List<Object> get props => [paymentMethod, paymentChannel ?? '', amountPaid, customerName ?? '', customerId ?? -1, note ?? '', transactionDate.toString(), pointsRedeemed ?? 0, pointExchangeRate ?? 100, tableId ?? -1, isTakeaway ?? false, pendingOrderCode ?? ''];
 }
 
 class ScanBarcode extends PosEvent {
@@ -141,7 +143,7 @@ class PosState extends Equatable {
   final List<CategoryModel> categories; 
   final List<CustomerModel> customers; 
   final List<Map<String, dynamic>> employees; 
-  final List<Map<String, dynamic>> tables; // NEW
+  final List<Map<String, dynamic>> tables;
   final List<CartItem> cartItems;
   final int selectedCategoryId; 
   final String searchQuery;
@@ -149,7 +151,11 @@ class PosState extends Equatable {
   final String? error;
   final bool isSuccess; 
   final Map<String, dynamic>? lastTransaction; 
-  final List<Map<String, dynamic>> pendingOrders; // RESTO MODE
+  final List<Map<String, dynamic>> pendingOrders;
+  // Pending order metadata (set by BukaProsesPesanan)
+  final String? pendingOrderCode;
+  final String? pendingCustomerName;
+  final int? pendingTableId;
 
   const PosState({
     this.allProducts = const [],
@@ -157,7 +163,7 @@ class PosState extends Equatable {
     this.categories = const [],
     this.customers = const [], 
     this.employees = const [], 
-    this.tables = const [], // NEW
+    this.tables = const [],
     this.cartItems = const [],
     this.selectedCategoryId = 0,
     this.searchQuery = '',
@@ -166,10 +172,12 @@ class PosState extends Equatable {
     this.isSuccess = false,
     this.lastTransaction,
     this.pendingOrders = const [],
+    this.pendingOrderCode,
+    this.pendingCustomerName,
+    this.pendingTableId,
   });
 
   double get subtotal => cartItems.fold(0, (sum, item) => sum + item.subtotal);
-  // Add Tax/Discount logic here if needed
   double get total => subtotal; 
 
   PosState copyWith({
@@ -187,6 +195,10 @@ class PosState extends Equatable {
     bool? isSuccess,
     Map<String, dynamic>? lastTransaction,
     List<Map<String, dynamic>>? pendingOrders,
+    String? pendingOrderCode,
+    String? pendingCustomerName,
+    int? pendingTableId,
+    bool clearPendingOrder = false,
   }) {
     return PosState(
       allProducts: allProducts ?? this.allProducts,
@@ -203,11 +215,14 @@ class PosState extends Equatable {
       isSuccess: isSuccess ?? this.isSuccess,
       lastTransaction: lastTransaction ?? this.lastTransaction,
       pendingOrders: pendingOrders ?? this.pendingOrders,
+      pendingOrderCode: clearPendingOrder ? null : (pendingOrderCode ?? this.pendingOrderCode),
+      pendingCustomerName: clearPendingOrder ? null : (pendingCustomerName ?? this.pendingCustomerName),
+      pendingTableId: clearPendingOrder ? null : (pendingTableId ?? this.pendingTableId),
     );
   }
 
   @override
-  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, tables, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction, pendingOrders];
+  List<Object?> get props => [allProducts, filteredProducts, categories, customers, employees, tables, cartItems, selectedCategoryId, searchQuery, isLoading, error, isSuccess, lastTransaction, pendingOrders, pendingOrderCode, pendingCustomerName, pendingTableId];
 }
 
 // Bloc
@@ -328,7 +343,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   }
   
   void _onClearCart(ClearCart event, Emitter<PosState> emit) {
-    emit(state.copyWith(cartItems: []));
+    emit(state.copyWith(cartItems: [], clearPendingOrder: true));
   }
 
   Future<void> _onSubmitTransaction(SubmitTransaction event, Emitter<PosState> emit) async {
@@ -381,6 +396,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       'created_at': transactionData['created_at'],
       'table_id': event.tableId,
       'is_takeaway': event.isTakeaway,
+      'pending_order_code': event.pendingOrderCode ?? state.pendingOrderCode,
     };
 
     final result = await transactionRepository.submitTransaction(apiData);
@@ -408,7 +424,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
             isLoading: false, 
             isSuccess: true, 
             cartItems: [],
-            lastTransaction: printData, 
+            lastTransaction: printData,
+            clearPendingOrder: true,
         ));
         // Reload products to reflect updated stock
         add(LoadPosData());
@@ -480,7 +497,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
             type: raw['type'] ?? 'barang',
             purchasePrice: 0.0,
             sellingPrice: (raw['price'] as num).toDouble(),
-            stock: 999, // Bypass stock for unknown
+            stock: 999,
             minimumStock: 0,
             isLowStock: false,
           )
@@ -491,8 +508,17 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       }
     }
 
+    // Extract table_id from the order
+    int? tableId;
+    if (order['table_id'] != null) {
+      tableId = order['table_id'] is int ? order['table_id'] : int.tryParse(order['table_id'].toString());
+    }
+
     emit(state.copyWith(
       cartItems: newCartItems,
+      pendingOrderCode: order['transaction_code'],
+      pendingCustomerName: order['customer_name'],
+      pendingTableId: tableId,
     ));
   }
 

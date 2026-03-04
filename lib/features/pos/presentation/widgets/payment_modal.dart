@@ -63,6 +63,23 @@ class _PaymentModalState extends State<PaymentModal> {
             _loyaltyPointsEnabled = enablePoints == true || enablePoints == 'true' || enablePoints == 1 || enablePoints == '1';
         }
     }
+
+    // Pre-fill from pending order if available
+    final posState = context.read<PosBloc>().state;
+    if (posState.pendingCustomerName != null && posState.pendingCustomerName!.isNotEmpty) {
+      // Try to find the customer in the loaded list
+      try {
+        _selectedCustomer = posState.customers.firstWhere(
+          (c) => c.name.toLowerCase() == posState.pendingCustomerName!.toLowerCase(),
+        );
+      } catch (_) {
+        // Customer not in list, create a temporary model for display
+        _selectedCustomer = CustomerModel(id: 0, name: posState.pendingCustomerName!, points: 0);
+      }
+    }
+    if (posState.pendingTableId != null) {
+      _selectedTableId = posState.pendingTableId;
+    }
   }
 
   int? _selectedTableId;
@@ -631,8 +648,9 @@ class _PaymentModalState extends State<PaymentModal> {
                                transactionDate: _selectedDate, 
                                pointsRedeemed: _usePoints ? _pointsToRedeem : 0, 
                                pointExchangeRate: _pointExchangeRate,
-                               tableId: _selectedTableId, // NEW
-                               isTakeaway: _isTakeaway, // NEW
+                               tableId: _selectedTableId,
+                               isTakeaway: _isTakeaway,
+                               pendingOrderCode: context.read<PosBloc>().state.pendingOrderCode,
                           ));
                           Navigator.pop(context); // Close Payment Modal
                       },
