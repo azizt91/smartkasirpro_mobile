@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:dio/dio.dart';
+
 import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:mobile_app/features/auth/presentation/bloc/auth_event.dart';
@@ -137,15 +137,6 @@ class OthersPage extends StatelessWidget {
                     bgColor: Colors.blue.shade50,
                     onTap: () => _showSyncDialog(context),
                   ),
-                  _buildDivider(),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.bug_report,
-                    label: 'Test Notifikasi FCM',
-                    iconColor: Colors.deepPurple.shade700,
-                    bgColor: Colors.deepPurple.shade50,
-                    onTap: () => _testFcmNotification(context),
-                  ),
                 ]),
                 const SizedBox(height: 24),
 
@@ -271,71 +262,6 @@ class OthersPage extends StatelessWidget {
     );
   }
 
-  Future<void> _testFcmNotification(BuildContext context) async {
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final dio = GetIt.instance<Dio>();
-      final response = await dio.post('/test-notification', data: {
-        'title': '🔔 Test dari Mobile App',
-        'body': 'Jika muncul, FCM berfungsi! ${DateTime.now().toString().substring(11, 19)}',
-        'type': 'order',
-      });
-
-      Navigator.of(context).pop(); // dismiss loading
-
-      final data = response.data;
-      final diagnostics = data['diagnostics'] ?? {};
-
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(data['success'] == true ? Icons.check_circle : Icons.error,
-                  color: data['success'] == true ? Colors.green : Colors.red),
-              const SizedBox(width: 8),
-              Expanded(child: Text(data['success'] == true ? 'FCM Berhasil!' : 'FCM Gagal',
-                  style: const TextStyle(fontSize: 16))),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(data['message'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                const Text('Diagnostik:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 8),
-                ...diagnostics.entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${e.key}: ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey)),
-                      Expanded(child: Text('${e.value}', style: const TextStyle(fontSize: 11))),
-                    ],
-                  ),
-                )),
-              ],
-            ),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(_), child: const Text('OK'))],
-        ),
-      );
-    } catch (e) {
-      Navigator.of(context).pop(); // dismiss loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
 }
 
 /// Sync Progress Dialog — syncs all data types with step-by-step progress.
