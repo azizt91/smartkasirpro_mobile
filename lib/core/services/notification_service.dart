@@ -20,24 +20,20 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint('FCM BG: notification=${message.notification?.title}, data=${message.data}');
 
-  // Read the user's custom sound preference from SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
-  final String category = message.data['notification_type'] ?? 'default';
-  
-  // Default sound map in case preference isn't set
-  const defaultSounds = {
+  // Determine the sound channel from the data payload
+  final notifType = message.data['notification_type'] ?? 'default';
+  final channelMap = {
+    'order': 'channel_order_alert',
+    'shift': 'channel_chime',
+    'audit': 'channel_ding',
+  };
+  final soundKeyMap = {
     'order': 'order_alert',
     'shift': 'chime',
     'audit': 'ding',
-    'default': 'order_alert',
   };
-  
-  // Get the custom sound key chosen by the user, fallback to default for that category
-  final soundKey = prefs.getString('notif_sound_$category') ?? defaultSounds[category] ?? 'order_alert';
-
-  // Make the channel ID unique to the sound to ensure Android applies the new sound 
-  // if the user changes their preference
-  final channelId = 'channel_${category}_$soundKey';
+  final channelId = channelMap[notifType] ?? 'high_importance_channel';
+  final soundKey = soundKeyMap[notifType] ?? 'order_alert';
 
   // Create a fresh local-notification plugin for this isolate
   final localPlugin = FlutterLocalNotificationsPlugin();
@@ -50,7 +46,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (androidPlugin != null) {
     await androidPlugin.createNotificationChannel(AndroidNotificationChannel(
       channelId,
-      'Notifikasi - $category',
+      'Notifikasi - $notifType',
       importance: Importance.max,
       playSound: true,
       enableVibration: true,
@@ -77,10 +73,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     return;
   }
 
-  // Only show manual local notification for DATA-ONLY messages
+  // Only show manual local notification for DATA-ONLY messages (which our backend doesn't currently use)
   final androidDetails = AndroidNotificationDetails(
     channelId,
-    'Notifikasi - $category',
+    'Notifikasi - $notifType',
     importance: Importance.max,
     priority: Priority.high,
     playSound: true,
@@ -99,7 +95,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     body,
     NotificationDetails(android: androidDetails),
   );
-  debugPrint('FCM BG: local notification shown manually for data-only message (sound: $soundKey)');
+  debugPrint('FCM BG: local notification shown manually for data-only message');
 }
 
 
@@ -261,16 +257,21 @@ class NotificationService {
     }
   }
 
-  AndroidNotificationDetails _androidDetails(String soundKey) {
-    final silent = soundKey == 'silent';
+  AndroidNotificationDetails _androidDetails(String category) {
+    // Mirror the backend mapping EXACTLY so foreground notifications 
+    // use the exact same channel and sound as background/killed notifications.
+    final soundKey = category == kCategoryOrder ? 'notif_order_alert' : 
+                     category == kCategoryShift ? 'notif_chime' : 
+                     category == kCategoryAudit ? 'notif_ding' : 'default';
+
     return AndroidNotificationDetails(
-      _channelId(soundKey),
-      'Notifikasi - ${availableSounds.firstWhere((s) => s.key == soundKey, orElse: () => availableSounds.first).label}',
+      'high_importance_channel',
+      'High Importance Notifications',
       importance: Importance.max,
       priority: Priority.high,
-      playSound: !silent,
-      enableVibration: !silent,
-      sound: silent ? null : RawResourceAndroidNotificationSound('notif_$soundKey'),
+      playSound: true,
+      enableVibration: true,
+      sound: soundKey != 'default' ? RawResourceAndroidNotificationSound(soundKey) : null,
       icon: '@mipmap/ic_launcher',
     );
   }
