@@ -137,51 +137,99 @@ class _KitchenViewState extends State<KitchenView> {
       statusText = 'SELESAI';
     }
 
+    // Calculate elapsed time from created_at
+    String timeAgo = '';
+    if (order['created_at'] != null) {
+      try {
+        final createdAt = DateTime.parse(order['created_at']);
+        final diff = DateTime.now().difference(createdAt);
+        if (diff.inMinutes < 60) {
+          timeAgo = '${diff.inMinutes} mnt lalu';
+        } else {
+          timeAgo = '${diff.inHours} jam lalu';
+        }
+      } catch (e) {
+        timeAgo = order['time'] ?? '';
+      }
+    } else {
+       timeAgo = order['time'] ?? '';
+    }
+
     return Card(
-      elevation: 4,
-      shadowColor: Colors.black12,
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.05),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
+          // Colored Left Border Indicator
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: headerColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+             width: 8,
+             color: headerColor,
+          ),
+          
+          // Main Content Area
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
+                // Header (White)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Meja $tableName',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Meja $tableName',
+                              style: const TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.bold, fontSize: 22),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              order['transaction_code'] ?? '-',
+                              style: const TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        order['transaction_code'] ?? '-',
-                        style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                           Container(
+                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                             decoration: BoxDecoration(
+                               color: headerColor.withOpacity(0.1),
+                               borderRadius: BorderRadius.circular(20),
+                               border: Border.all(color: headerColor.withOpacity(0.5))
+                             ),
+                             child: Text(statusText, style: TextStyle(color: headerColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                           ),
+                           const SizedBox(height: 8),
+                           Row(
+                             mainAxisSize: MainAxisSize.min,
+                             children: [
+                               const Icon(Icons.timer_outlined, size: 14, color: Colors.black45),
+                               const SizedBox(width: 4),
+                               Text(timeAgo, style: const TextStyle(color: Colors.black45, fontSize: 12, fontWeight: FontWeight.bold)),
+                             ],
+                           ),
+                        ],
+                      )
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(statusText, style: TextStyle(color: headerColor, fontWeight: FontWeight.bold, fontSize: 13)),
-                ),
-              ],
-            ),
-          ),
+                
+                // Divider
+                const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
           
           // Items List
           Expanded(
@@ -209,8 +257,24 @@ class _KitchenViewState extends State<KitchenView> {
                              crossAxisAlignment: CrossAxisAlignment.start,
                              children: [
                                 Text(item['name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                                if (item['note'] != null && item['note'].toString().isNotEmpty)
-                                   Text('Catatan: ${item['note']}', style: TextStyle(color: Colors.red.shade400, fontSize: 13, fontStyle: FontStyle.italic)),
+                                if (item['note'] != null && item['note'].toString().trim().isNotEmpty)
+                                   Container(
+                                     margin: const EdgeInsets.top(6),
+                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                     decoration: BoxDecoration(
+                                        color: Colors.yellow.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.yellow.shade400, width: 0.5)
+                                     ),
+                                     child: Row(
+                                       crossAxisAlignment: CrossAxisAlignment.start,
+                                       children: [
+                                          Icon(Icons.edit_note, size: 16, color: Colors.orange.shade800),
+                                          const SizedBox(width: 6),
+                                          Expanded(child: Text('${item['note']}', style: TextStyle(color: Colors.orange.shade900, fontSize: 13, fontWeight: FontWeight.w500))),
+                                       ],
+                                     ),
+                                   ),
                              ],
                            )
                         ),
@@ -230,9 +294,10 @@ class _KitchenViewState extends State<KitchenView> {
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                           backgroundColor: Colors.blue,
+                           backgroundColor: Colors.blue.shade400,
                            padding: const EdgeInsets.symmetric(vertical: 16),
                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                           elevation: 0,
                         ),
                         onPressed: () {
                            context.read<KitchenBloc>().add(UpdateOrderStatus(order['transaction_code'], 'processing'));
@@ -245,9 +310,10 @@ class _KitchenViewState extends State<KitchenView> {
                     Expanded(
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                           backgroundColor: Colors.green,
+                           backgroundColor: const Color(0xFF1B9C5E),
                            padding: const EdgeInsets.symmetric(vertical: 16),
                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                           elevation: 0,
                         ),
                         onPressed: () {
                            context.read<KitchenBloc>().add(UpdateOrderStatus(order['transaction_code'], 'completed'));
@@ -260,6 +326,7 @@ class _KitchenViewState extends State<KitchenView> {
           )
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
