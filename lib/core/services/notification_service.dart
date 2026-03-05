@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -19,11 +20,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint('FCM BG: notification=${message.notification?.title}, data=${message.data}');
 
-  // Create a fresh local-notification plugin for this isolate
-  final localPlugin = FlutterLocalNotificationsPlugin();
-  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-  await localPlugin.initialize(const InitializationSettings(android: androidInit));
-
   // Determine the sound channel from the data payload
   final notifType = message.data['notification_type'] ?? 'default';
   final channelMap = {
@@ -38,6 +34,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   };
   final channelId = channelMap[notifType] ?? 'high_importance_channel';
   final soundKey = soundKeyMap[notifType] ?? 'order_alert';
+
+  // Create a fresh local-notification plugin for this isolate
+  final localPlugin = FlutterLocalNotificationsPlugin();
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await localPlugin.initialize(const InitializationSettings(android: androidInit));
 
   // Create the channel in this isolate (Android is idempotent — safe to call repeatedly)
   final androidPlugin = localPlugin
@@ -63,7 +64,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ));
   }
 
-  // Build notification details
+  // If the backend sent a "notification" payload, Google Play Services (FCM SDK) 
+  // will AUTOMATICALLY display the notification in the system tray.
+  // We MUST NOT show a local notification here, otherwise duplicate notifications
+  // will trigger Android's grouping mechanism, which silences subsequent alerts!
+  if (message.notification != null) {
+    debugPrint('FCM BG: Notification automatically displayed by OS. Skipping local duplicate.');
+    return;
+  }
+
+  // Only show manual local notification for DATA-ONLY messages (which our backend doesn't currently use)
   final androidDetails = AndroidNotificationDetails(
     channelId,
     'Notifikasi - $notifType',
@@ -75,26 +85,19 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     icon: '@mipmap/ic_launcher',
   );
 
-  // Determine title/body from notification payload or data payload
-  String? title;
-  String? body;
-  if (message.notification != null) {
-    title = message.notification!.title;
-    body = message.notification!.body;
-  } else {
-    title = message.data['title'] ?? 'Notifikasi Baru';
-    body = message.data['body'] ?? '';
-  }
+  final title = message.data['title'] ?? 'Notifikasi Baru';
+  final body = message.data['body'] ?? '';
 
-  // Show the local notification
+  // Show the local notification with a truly random ID to prevent grouping suppression
   await localPlugin.show(
-    DateTime.now().millisecondsSinceEpoch.remainder(100000),
+    Random().nextInt(2147483647),
     title,
     body,
     NotificationDetails(android: androidDetails),
   );
-  debugPrint('FCM BG: local notification shown for $notifType');
+  debugPrint('FCM BG: local notification shown manually for data-only message');
 }
+
 
 /// ──────────────────────────────────────────────────────────
 /// Sound definitions & category constants
@@ -277,7 +280,7 @@ class NotificationService {
     final category = _resolveCategory(message);
     getSoundForCategory(category).then((soundKey) {
       _local.show(
-        notification.hashCode,
+        Random().nextInt(2147483647),
         notification.title,
         notification.body,
         NotificationDetails(android: _androidDetails(soundKey)),
@@ -293,7 +296,7 @@ class NotificationService {
 
     getSoundForCategory(category).then((soundKey) {
       _local.show(
-        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        Random().nextInt(2147483647),
         title,
         body,
         NotificationDetails(android: _androidDetails(soundKey)),
