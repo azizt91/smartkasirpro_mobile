@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -10,10 +11,12 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 /// BACKGROUND HANDLER  (top-level, required by FCM)
 /// ──────────────────────────────────────────────────────────
 /// This handler runs in a SEPARATE ISOLATE when the app is in
-/// background or killed. We must create fresh plugin instances
-/// and notification channels here.
+/// background or killed. We must initialize Firebase and create
+/// fresh plugin instances here.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // CRITICAL: Must initialize Firebase in background isolate
+  await Firebase.initializeApp();
   debugPrint('FCM BG: notification=${message.notification?.title}, data=${message.data}');
 
   // Create a fresh local-notification plugin for this isolate
