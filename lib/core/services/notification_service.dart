@@ -32,7 +32,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     'shift': 'chime',
     'audit': 'ding',
   };
-  final channelId = channelMap[notifType] ?? 'high_importance_channel';
+  final channelId = channelMap[notifType] == null ? 'smart_kasir_v2_high_importance_channel' : 'smart_kasir_v2_${channelMap[notifType]}';
   final soundKey = soundKeyMap[notifType] ?? 'order_alert';
 
   // Create a fresh local-notification plugin for this isolate
@@ -55,7 +55,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ));
     // Also create the fallback channel
     await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
-      'high_importance_channel',
+      'smart_kasir_v2_high_importance_channel',
       'High Importance Notifications',
       importance: Importance.max,
       playSound: true,
@@ -78,9 +78,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     channelId,
     'Notifikasi - $notifType',
     importance: Importance.max,
-    priority: Priority.high,
+    priority: Priority.max,
     playSound: true,
     enableVibration: true,
+    fullScreenIntent: true,
     sound: RawResourceAndroidNotificationSound('notif_$soundKey'),
     icon: '@mipmap/ic_launcher',
   );
@@ -144,7 +145,7 @@ class NotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
 
-  String _channelId(String key) => 'channel_$key';
+  String _channelId(String key) => 'smart_kasir_v2_$key';
 
   /// Must be called AFTER Firebase.initializeApp() and DI init.
   Future<void> initialize() async {
@@ -159,9 +160,12 @@ class NotificationService {
       alert: true, badge: true, sound: true,
     );
 
-    // ── 2. Local notification init ──
+    // ── 2. Local notification init & Android 13+ Permissions ──
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _local.initialize(const InitializationSettings(android: androidInit));
+    
+    // Explicitly request permissions for Android 13+
+    await _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
 
     // ── 3. Create ALL sound channels ──
     await _createAllChannels();
@@ -177,9 +181,11 @@ class NotificationService {
       debugPrint('FCM FG: notification=${message.notification?.title}, data=${message.data}');
 
       if (message.notification != null) {
-        _showLocalNotification(message);
+         // BYPASS ASYNC: Call show immediately for instant heads-up
+        _showLocalNotificationFast(message);
       } else if (message.data.isNotEmpty) {
-        _showDataNotification(message);
+         // Bypass for data as well
+        _showDataNotificationFast(message);
       }
     });
 
@@ -222,7 +228,7 @@ class NotificationService {
     }
     // Fallback channel (always keep for compatibility)
     await android.createNotificationChannel(const AndroidNotificationChannel(
-      'high_importance_channel',
+      'smart_kasir_v2_high_importance_channel',
       'High Importance Notifications',
       importance: Importance.max,
       playSound: true,
@@ -265,10 +271,11 @@ class NotificationService {
                      category == kCategoryAudit ? 'notif_ding' : 'default';
 
     return AndroidNotificationDetails(
-      'high_importance_channel',
+      'smart_kasir_v2_high_importance_channel',
       'High Importance Notifications',
       importance: Importance.max,
-      priority: Priority.high,
+      priority: Priority.max, // <-- Force MAX priority
+      fullScreenIntent: true, // <-- Force Heads-up / Overlay
       playSound: true,
       enableVibration: true,
       sound: soundKey != 'default' ? RawResourceAndroidNotificationSound(soundKey) : null,
@@ -278,35 +285,72 @@ class NotificationService {
 
   // ────────── Show notifications (foreground) ──────────
 
-  void _showLocalNotification(RemoteMessage message) {
+  void _showLocalNotificationFast(RemoteMessage message) {
     final notification = message.notification;
     if (notification == null) return;
 
     final category = _resolveCategory(message);
-    getSoundForCategory(category).then((soundKey) {
-      _local.show(
-        Random().nextInt(2147483647),
-        notification.title,
-        notification.body,
-        NotificationDetails(android: _androidDetails(soundKey)),
-      );
-    });
+    // Directly map to soundkey without awaiting shared prefs
+    final defaultSoundMap = {
+       kCategoryOrder: 'notif_order_alert',
+       kCategoryShift: 'notif_chime',
+       kCategoryAudit: 'notif_ding',
+       kCategoryDefault: 'default',
+    };
+    final soundKey = defaultSoundMap[category] ?? 'default';
+
+    _local.show(
+      Random().nextInt(2147483647),
+      notification.title,
+      notification.body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'smart_kasir_v2_high_importance_channel',
+          'High Importance Notifications',
+          importance: Importance.max,
+          priority: Priority.max,
+          fullScreenIntent: true,
+          playSound: true,
+          enableVibration: true,
+          sound: soundKey != 'default' ? RawResourceAndroidNotificationSound(soundKey) : null,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+    );
   }
 
-  void _showDataNotification(RemoteMessage message) {
+  void _showDataNotificationFast(RemoteMessage message) {
     final data = message.data;
     final title = data['title'] ?? 'Notifikasi Baru';
     final body  = data['body']  ?? '';
     final category = _resolveCategory(message);
+    
+    final defaultSoundMap = {
+       kCategoryOrder: 'notif_order_alert',
+       kCategoryShift: 'notif_chime',
+       kCategoryAudit: 'notif_ding',
+       kCategoryDefault: 'default',
+    };
+    final soundKey = defaultSoundMap[category] ?? 'default';
 
-    getSoundForCategory(category).then((soundKey) {
-      _local.show(
-        Random().nextInt(2147483647),
-        title,
-        body,
-        NotificationDetails(android: _androidDetails(soundKey)),
-      );
-    });
+    _local.show(
+      Random().nextInt(2147483647),
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'smart_kasir_v2_high_importance_channel',
+          'High Importance Notifications',
+          importance: Importance.max,
+          priority: Priority.max,
+          fullScreenIntent: true,
+          playSound: true,
+          enableVibration: true,
+          sound: soundKey != 'default' ? RawResourceAndroidNotificationSound(soundKey) : null,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+    );
   }
 
   // ────────── Sound preview ──────────
