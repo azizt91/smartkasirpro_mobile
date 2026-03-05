@@ -122,18 +122,21 @@ class _KitchenViewState extends State<KitchenView> {
     final tableName = order['table_name'] ?? '-';
     final items = order['items'] as List<dynamic>? ?? [];
     
-    // Status colors
+    // Takeaway logic
+    final isTakeaway = (order['is_takeaway'] == 1 || order['is_takeaway'] == true || tableName.toString().toLowerCase().contains('takeaway'));
+    final displayTitle = isTakeaway ? '🛍️ TAKEAWAY' : (tableName == '-' || tableName.toString().isEmpty ? 'Tanpa Meja' : 'Meja $tableName');
+
     Color headerColor;
     String statusText;
     
     if (status == 'pending') {
-      headerColor = Colors.orange;
+      headerColor = isTakeaway ? Colors.purple.shade400 : Colors.orange;
       statusText = 'MENUNGGU';
     } else if (status == 'processing') {
-      headerColor = Colors.blue;
+      headerColor = Colors.blue.shade400;
       statusText = 'DIMASAK';
     } else {
-      headerColor = Colors.green;
+      headerColor = const Color(0xFF1B9C5E);
       statusText = 'SELESAI';
     }
 
@@ -155,11 +158,12 @@ class _KitchenViewState extends State<KitchenView> {
        timeAgo = order['time'] ?? '';
     }
 
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.05),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
+    return RepaintBoundary(
+      child: Card(
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.05),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -189,8 +193,12 @@ class _KitchenViewState extends State<KitchenView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Meja $tableName',
-                              style: const TextStyle(color: Color(0xFF1A1A2E), fontWeight: FontWeight.bold, fontSize: 22),
+                              displayTitle,
+                              style: TextStyle(
+                                  color: isTakeaway ? Colors.purple.shade800 : const Color(0xFF1A1A2E), 
+                                  fontWeight: FontWeight.bold, 
+                                  fontSize: isTakeaway ? 18 : 22
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
