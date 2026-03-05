@@ -122,15 +122,6 @@ class OthersPage extends StatelessWidget {
                   _buildDivider(),
                   _buildMenuItem(
                     context,
-                    icon: Icons.notifications_active,
-                    label: 'Nada Notifikasi',
-                    iconColor: Colors.amber.shade700,
-                    bgColor: Colors.amber.shade50,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationSettingsPage())),
-                  ),
-                  _buildDivider(),
-                  _buildMenuItem(
-                    context,
                     icon: Icons.sync,
                     label: 'Sinkronisasi Data',
                     iconColor: Colors.blue.shade700,
