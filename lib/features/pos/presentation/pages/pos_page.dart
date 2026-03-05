@@ -170,6 +170,7 @@ class _PosViewState extends State<PosView> {
         }
       },
       child: Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Point of Sale', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF1A1A2E))),
         actions: [
@@ -248,16 +249,20 @@ class _PosViewState extends State<PosView> {
           ),
           
           // Cart (Right Side) — Only visible on tablet landscape
-          if (isTablet)
-            SizedBox(
-              width: 380,
-              child: CartWidget(
-                isTablet: true,
-                onCheckout: (grandTotal) {
-                  _showPaymentModal(context, grandTotal);
-                },
+          if (isTablet) ...[
+            const VerticalDivider(width: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+            Expanded(
+              flex: 2,
+              child: SafeArea( // Protects against keyboard/notches
+                child: CartWidget(
+                  isTablet: true,
+                  onCheckout: (grandTotal) {
+                    _showPaymentModal(context, grandTotal);
+                  },
+                ),
               ),
             ),
+          ],
         ],
       ),
       // Bottom cart bar only on mobile

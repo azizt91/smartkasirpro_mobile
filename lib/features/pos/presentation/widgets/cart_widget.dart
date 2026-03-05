@@ -140,8 +140,8 @@ class CartWidget extends StatelessWidget {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -153,7 +153,7 @@ class CartWidget extends StatelessWidget {
         children: [
           // Image
           Container(
-            height: 64, width: 64,
+            height: 56, width: 56,
             decoration: BoxDecoration(
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(16),
@@ -165,7 +165,7 @@ class CartWidget extends StatelessWidget {
                 )
                 : const Icon(Icons.inventory_2, color: Colors.grey),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
 
           // Info
           Expanded(
@@ -266,7 +266,7 @@ class CartWidget extends StatelessWidget {
         final grandTotal = (taxableAmount + tax).roundToDouble();
 
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -325,7 +325,7 @@ class CartWidget extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               
               // Pay Button
               SizedBox(
