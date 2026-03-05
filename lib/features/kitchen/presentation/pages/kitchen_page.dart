@@ -267,7 +267,7 @@ class _KitchenViewState extends State<KitchenView> {
                                 Text(item['name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                                 if (item['note'] != null && item['note'].toString().trim().isNotEmpty)
                                    Container(
-                                     margin: const EdgeInsets.top(6),
+                                     margin: const EdgeInsets.only(top: 6),
                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                      decoration: BoxDecoration(
                                         color: Colors.yellow.shade100,
@@ -332,9 +332,12 @@ class _KitchenViewState extends State<KitchenView> {
               ],
             ),
           )
-        ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
