@@ -9,15 +9,88 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 /// ──────────────────────────────────────────────────────────
 /// BACKGROUND HANDLER  (top-level, required by FCM)
 /// ──────────────────────────────────────────────────────────
-/// When a notification+data message arrives and the app is in background/killed,
-/// Android OS auto-displays the notification using the 'notification' payload
-/// and the channel_id set by the backend. This handler is only called for
-/// data processing — we do NOT show a duplicate local notification here.
+/// This handler runs in a SEPARATE ISOLATE when the app is in
+/// background or killed. We must create fresh plugin instances
+/// and notification channels here.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('FCM BG: ${message.data}');
-  // Android OS already displayed the notification via the 'notification' payload.
-  // No need to show a local notification here.
+  debugPrint('FCM BG: notification=${message.notification?.title}, data=${message.data}');
+
+  // Create a fresh local-notification plugin for this isolate
+  final localPlugin = FlutterLocalNotificationsPlugin();
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await localPlugin.initialize(const InitializationSettings(android: androidInit));
+
+  // Determine the sound channel from the data payload
+  final notifType = message.data['notification_type'] ?? 'default';
+  final channelMap = {
+    'order': 'channel_order_alert',
+    'shift': 'channel_chime',
+    'audit': 'channel_ding',
+  };
+  final soundKeyMap = {
+    'order': 'order_alert',
+    'shift': 'chime',
+    'audit': 'ding',
+  };
+  final channelId = channelMap[notifType] ?? 'high_importance_channel';
+  final soundKey = soundKeyMap[notifType] ?? 'order_alert';
+
+  // Create the channel in this isolate (Android is idempotent — safe to call repeatedly)
+  final androidPlugin = localPlugin
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  if (androidPlugin != null) {
+    await androidPlugin.createNotificationChannel(AndroidNotificationChannel(
+      channelId,
+      'Notifikasi - $notifType',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      showBadge: true,
+      sound: RawResourceAndroidNotificationSound('notif_$soundKey'),
+    ));
+    // Also create the fallback channel
+    await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
+      'high_importance_channel',
+      'High Importance Notifications',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+      showBadge: true,
+    ));
+  }
+
+  // Build notification details
+  final androidDetails = AndroidNotificationDetails(
+    channelId,
+    'Notifikasi - $notifType',
+    importance: Importance.max,
+    priority: Priority.high,
+    playSound: true,
+    enableVibration: true,
+    sound: RawResourceAndroidNotificationSound('notif_$soundKey'),
+    icon: '@mipmap/ic_launcher',
+  );
+
+  // Determine title/body from notification payload or data payload
+  String? title;
+  String? body;
+  if (message.notification != null) {
+    title = message.notification!.title;
+    body = message.notification!.body;
+  } else {
+    title = message.data['title'] ?? 'Notifikasi Baru';
+    body = message.data['body'] ?? '';
+  }
+
+  // Show the local notification
+  await localPlugin.show(
+    DateTime.now().millisecondsSinceEpoch.remainder(100000),
+    title,
+    body,
+    NotificationDetails(android: androidDetails),
+  );
+  debugPrint('FCM BG: local notification shown for $notifType');
 }
 
 /// ──────────────────────────────────────────────────────────
