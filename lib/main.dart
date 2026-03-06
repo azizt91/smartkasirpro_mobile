@@ -32,6 +32,8 @@ import 'core/services/notification_service.dart';
 import 'core/services/printer_service.dart'; // Import PrinterService
 import 'firebase_options.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const AppStarter());
@@ -146,6 +148,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'Kasir App Mobile',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
