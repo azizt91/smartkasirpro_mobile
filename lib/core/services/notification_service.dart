@@ -32,7 +32,7 @@ class NotificationService {
 
     // 3. Inisialisasi plugin lokal
     await _local.initialize(
-      const InitializationSettings(android: AndroidInitializationSettings('icon_notification')),
+      const InitializationSettings(android: AndroidInitializationSettings('ic_notification')),
     );
 
     // 4. DAFTARKAN CHANNEL KE SISTEM (Wajib agar banner muncul)
@@ -91,7 +91,7 @@ class NotificationService {
           category: AndroidNotificationCategory.call, // Kategori Call/Alarm lebih agresif muncul di layar
           playSound: true,
           sound: RawResourceAndroidNotificationSound(soundFile),
-          icon: 'icon_notification',
+          icon: 'ic_notification',
         ),
       ),
     );
