@@ -123,7 +123,7 @@ class _KitchenViewState extends State<KitchenView> {
     final items = order['items'] as List<dynamic>? ?? [];
     
     // Takeaway logic
-    final isTakeaway = (order['is_takeaway'] == 1 || order['is_takeaway'] == true || tableName.toString().toLowerCase().contains('takeaway'));
+    final isTakeaway = (order['is_takeaway'] == 1 || order['is_takeaway'] == '1' || order['is_takeaway'] == true || order['is_takeaway'] == 'true' || tableName.toString().toLowerCase().contains('takeaway'));
     final displayTitle = isTakeaway ? '🛍️ TAKEAWAY' : (tableName == '-' || tableName.toString().isEmpty ? 'Tanpa Meja' : 'Meja $tableName');
 
     Color headerColor;

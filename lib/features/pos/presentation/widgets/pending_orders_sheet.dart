@@ -200,6 +200,11 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
     // Safety checks for API response
     final totalAmount = double.tryParse(order['total_amount']?.toString() ?? '0') ?? 0;
     final tableName = order['table_name'] ?? '-';
+    
+    // Takeaway logic
+    final isTakeaway = (order['is_takeaway'] == 1 || order['is_takeaway'] == '1' || order['is_takeaway'] == true || order['is_takeaway'] == 'true' || tableName.toString().toLowerCase().contains('takeaway'));
+    final displayTitle = isTakeaway ? '🛍️ TAKEAWAY' : (tableName == '-' || tableName.toString().isEmpty ? 'Tanpa Meja' : 'Meja $tableName');
+
     final customerName = order['customer_name'] ?? 'Pelanggan';
     final transactionCode = order['transaction_code'] ?? 'Unknown';
     final paymentStatus = order['payment_status'] ?? 'unpaid';
@@ -262,11 +267,11 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.table_restaurant, size: 16, color: Colors.grey),
+                        Icon(isTakeaway ? Icons.shopping_bag : Icons.table_restaurant, size: 16, color: isTakeaway ? Colors.purple.shade700 : Colors.grey),
                         const SizedBox(width: 6),
                         Text(
-                          'Meja $tableName',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          displayTitle,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isTakeaway ? Colors.purple.shade800 : Colors.black87),
                         ),
                       ],
                     ),
