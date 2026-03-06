@@ -6,47 +6,12 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../injection_container.dart' as di;
 import '../../features/auth/domain/repositories/auth_repository.dart';
 
-/// ──────────────────────────────────────────────────────────
-/// KONSTANTA ID CHANNEL (Satu Jalur Utama)
-/// ──────────────────────────────────────────────────────────
 const String kMainChannelId = 'smart_kasir_v7_urgent';
 
-/// ──────────────────────────────────────────────────────────
-/// BACKGROUND HANDLER (Wajib di luar class)
-/// ──────────────────────────────────────────────────────────
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  
-  // Ambil tipe suara: order_alert untuk pesanan, chime untuk lainnya
-  final type = message.data['notification_type'] ?? 'order';
-  final soundFile = (type == 'order') ? 'notif_order_alert' : 'notif_chime';
-
-  final localPlugin = FlutterLocalNotificationsPlugin();
-  await localPlugin.initialize(const InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-  ));
-
-  // Tampilkan manual jika pesan hanya berisi DATA (tanpa notification payload)
-  if (message.notification == null) {
-    await localPlugin.show(
-      Random().nextInt(2147483647),
-      message.data['title'] ?? 'Pesanan Baru',
-      message.data['body'] ?? 'Cek aplikasi sekarang',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          kMainChannelId,
-          'Notifikasi Pesanan',
-          importance: Importance.max,
-          priority: Priority.max,
-          playSound: true,
-          fullScreenIntent: true,
-          sound: RawResourceAndroidNotificationSound(soundFile),
-          icon: '@mipmap/ic_launcher',
-        ),
-      ),
-    );
-  }
+  NotificationService().showNotificationFromData(message);
 }
 
 class NotificationService {
@@ -58,24 +23,25 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
 
   Future<void> initialize() async {
-    // 1. Minta Izin Notifikasi
+    // 1. Izin dasar
     await _fcm.requestPermission(alert: true, badge: true, sound: true);
     
-    // 2. Setel opsi agar notifikasi muncul saat aplikasi dibuka (Foreground)
-    await _fcm.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
+    // 2. Setel opsi agar sistem tidak "mencuri" notifikasi (kita handle manual)
+    await _fcm.setForegroundNotificationPresentationOptions(alert: false, badge: true, sound: false);
 
-    // 3. Inisialisasi Notifikasi Lokal
-    await _local.initialize(const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-    ));
-    
-    // 4. Daftarkan Channel v7 ke Sistem Android
+    // 3. Inisialisasi plugin lokal
+    await _local.initialize(
+      const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    );
+
+    // 4. DAFTARKAN CHANNEL KE SISTEM (Wajib agar banner muncul)
     final androidPlugin = _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
         kMainChannelId,
         'Notifikasi Pesanan',
-        importance: Importance.max,
+        description: 'Pemberitahuan Pesanan Baru Masuk',
+        importance: Importance.max, // Wajib MAX untuk popup
         playSound: true,
         enableVibration: true,
         showBadge: true,
@@ -84,29 +50,24 @@ class NotificationService {
       await androidPlugin.requestNotificationsPermission();
     }
 
-    // 5. Listener saat aplikasi sedang DIBUKA
+    // 5. Listener Foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      final title = message.notification?.title ?? message.data['title'] ?? 'Pesanan Baru';
-      final body = message.notification?.body ?? message.data['body'] ?? '';
-      _showInstant(title, body, message);
+      showNotificationFromData(message);
     });
 
-    // 6. Setel Background Handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
-    // 7. Sinkronisasi Token FCM ke Database (Penting!)
     await _syncToken();
-    _fcm.onTokenRefresh.listen((newToken) async {
-      await _sendTokenToServer(newToken);
-    });
   }
 
-  // Fungsi memicu popup (Heads-up) instan di foreground
-  void _showInstant(String title, String body, RemoteMessage message) {
+  // Fungsi penampil popup yang dipanggil di Foreground & Background
+  Future<void> showNotificationFromData(RemoteMessage message) async {
     final type = message.data['notification_type'] ?? 'order';
     final soundFile = (type == 'order') ? 'notif_order_alert' : 'notif_chime';
 
-    _local.show(
+    final title = message.notification?.title ?? message.data['title'] ?? 'Pesanan Baru';
+    final body = message.notification?.body ?? message.data['body'] ?? 'Cek aplikasi sekarang';
+
+    await _local.show(
       Random().nextInt(2147483647),
       title,
       body,
@@ -114,9 +75,12 @@ class NotificationService {
         android: AndroidNotificationDetails(
           kMainChannelId,
           'Notifikasi Pesanan',
+          channelDescription: 'Pemberitahuan Pesanan Baru Masuk',
           importance: Importance.max,
-          priority: Priority.max,
-          fullScreenIntent: true,
+          priority: Priority.high,
+          ticker: 'ticker',
+          fullScreenIntent: true, // Memaksa popup muncul di atas aplikasi
+          category: AndroidNotificationCategory.call, // Kategori Call/Alarm lebih agresif muncul di layar
           playSound: true,
           sound: RawResourceAndroidNotificationSound(soundFile),
           icon: '@mipmap/ic_launcher',
@@ -125,25 +89,15 @@ class NotificationService {
     );
   }
 
-  /// ──────────────────────────────────────────────────────────
-  /// LOGIKA TOKEN SYNC (Pelaporan Alamat HP ke Server)
-  /// ──────────────────────────────────────────────────────────
   Future<void> _syncToken() async {
     try {
       final token = await _fcm.getToken();
-      if (token != null) await _sendTokenToServer(token);
+      if (token != null) {
+        final repo = di.sl<AuthRepository>();
+        await repo.updateFcmToken(token);
+      }
     } catch (e) {
       debugPrint('FCM Token sync failed: $e');
-    }
-  }
-
-  Future<void> _sendTokenToServer(String token) async {
-    try {
-      final repo = di.sl<AuthRepository>();
-      await repo.updateFcmToken(token);
-      debugPrint('FCM: Token updated on server');
-    } catch (e) {
-      debugPrint('FCM: Server sync failed: $e');
     }
   }
 
