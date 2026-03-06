@@ -3,12 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Wajib ada untuk build
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart'; // Wajib ada untuk previewSound
 import '../../injection_container.dart' as di;
 import '../../features/auth/domain/repositories/auth_repository.dart';
 
 /// ──────────────────────────────────────────────────────────
-/// KONSTANTA & CLASS (Dibutuhkan agar notification_settings_page tidak error)
+/// KONSTANTA & CLASS (Wajib ada agar Build tidak Error)
 /// ──────────────────────────────────────────────────────────
 const String kMainChannelId = 'smart_kasir_v7_urgent';
 
@@ -24,9 +25,20 @@ const String kCategoryShift   = 'shift';
 const String kCategoryAudit   = 'audit';
 const String kCategoryDefault = 'default';
 
+// Variabel ini yang dicari oleh compiler Bapak
+const Map<String, String> kDefaultSounds = {
+  kCategoryOrder:   'order_alert',
+  kCategoryShift:   'chime',
+  kCategoryAudit:   'ding',
+  kCategoryDefault: 'order_alert',
+};
+
 const List<NotifSound> availableSounds = [
   NotifSound(key: 'order_alert', label: 'Pesanan Masuk', description: 'Nada cepat seperti Gojek'),
   NotifSound(key: 'chime', label: 'Lonceng', description: 'Nada chime lembut'),
+  NotifSound(key: 'ding', label: 'Ding', description: 'Nada ding pendek'),
+  NotifSound(key: 'cash_register', label: 'Mesin Kasir', description: 'Suara khas register'),
+  NotifSound(key: 'bell', label: 'Bel Toko', description: 'Suara bel pintu toko'),
   NotifSound(key: 'silent', label: 'Diam', description: 'Tanpa suara'),
 ];
 
@@ -130,16 +142,28 @@ class NotificationService {
   }
 
   /// ──────────────────────────────────────────────────────────
-  /// FUNGSI FORMALITAS (Wajib ada agar Build APK tidak Error)
+  /// FUNGSI UNTUK BUILD (Satisfy notification_settings_page.dart)
   /// ──────────────────────────────────────────────────────────
   Future<String> getSoundForCategory(String category) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('notif_sound_$category') ?? 'order_alert';
+    return prefs.getString('notif_sound_$category') ?? kDefaultSounds[category] ?? 'order_alert';
   }
 
   Future<void> setSoundForCategory(String category, String soundKey) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('notif_sound_$category', soundKey);
+  }
+
+  // Fungsi previewSound yang hilang tadi sudah saya kembalikan
+  Future<void> previewSound(String soundKey) async {
+    if (soundKey == 'silent') return;
+    try {
+      final player = AudioPlayer();
+      await player.play(AssetSource('../res/raw/notif_$soundKey.mp3'));
+      player.onPlayerComplete.listen((_) => player.dispose());
+    } catch (e) {
+      debugPrint('Preview error: $e');
+    }
   }
 
   /// ──────────────────────────────────────────────────────────
