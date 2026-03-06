@@ -3,52 +3,22 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:audioplayers/audioplayers.dart'; // Wajib ada untuk previewSound
 import '../../injection_container.dart' as di;
 import '../../features/auth/domain/repositories/auth_repository.dart';
 
 /// ──────────────────────────────────────────────────────────
-/// KONSTANTA & CLASS (Wajib ada agar Build tidak Error)
+/// KONSTANTA ID CHANNEL (Satu Jalur Utama)
 /// ──────────────────────────────────────────────────────────
 const String kMainChannelId = 'smart_kasir_v7_urgent';
 
-class NotifSound {
-  final String key;
-  final String label;
-  final String description;
-  const NotifSound({required this.key, required this.label, required this.description});
-}
-
-const String kCategoryOrder   = 'order';
-const String kCategoryShift   = 'shift';
-const String kCategoryAudit   = 'audit';
-const String kCategoryDefault = 'default';
-
-// Variabel ini yang dicari oleh compiler Bapak
-const Map<String, String> kDefaultSounds = {
-  kCategoryOrder:   'order_alert',
-  kCategoryShift:   'chime',
-  kCategoryAudit:   'ding',
-  kCategoryDefault: 'order_alert',
-};
-
-const List<NotifSound> availableSounds = [
-  NotifSound(key: 'order_alert', label: 'Pesanan Masuk', description: 'Nada cepat seperti Gojek'),
-  NotifSound(key: 'chime', label: 'Lonceng', description: 'Nada chime lembut'),
-  NotifSound(key: 'ding', label: 'Ding', description: 'Nada ding pendek'),
-  NotifSound(key: 'cash_register', label: 'Mesin Kasir', description: 'Suara khas register'),
-  NotifSound(key: 'bell', label: 'Bel Toko', description: 'Suara bel pintu toko'),
-  NotifSound(key: 'silent', label: 'Diam', description: 'Tanpa suara'),
-];
-
 /// ──────────────────────────────────────────────────────────
-/// BACKGROUND HANDLER
+/// BACKGROUND HANDLER (Wajib di luar class)
 /// ──────────────────────────────────────────────────────────
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   
+  // Ambil tipe suara: order_alert untuk pesanan, chime untuk lainnya
   final type = message.data['notification_type'] ?? 'order';
   final soundFile = (type == 'order') ? 'notif_order_alert' : 'notif_chime';
 
@@ -57,6 +27,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
   ));
 
+  // Tampilkan manual jika pesan hanya berisi DATA (tanpa notification payload)
   if (message.notification == null) {
     await localPlugin.show(
       Random().nextInt(2147483647),
@@ -87,13 +58,18 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
 
   Future<void> initialize() async {
+    // 1. Minta Izin Notifikasi
     await _fcm.requestPermission(alert: true, badge: true, sound: true);
+    
+    // 2. Setel opsi agar notifikasi muncul saat aplikasi dibuka (Foreground)
     await _fcm.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
 
+    // 3. Inisialisasi Notifikasi Lokal
     await _local.initialize(const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     ));
     
+    // 4. Daftarkan Channel v7 ke Sistem Android
     final androidPlugin = _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(const AndroidNotificationChannel(
@@ -108,16 +84,24 @@ class NotificationService {
       await androidPlugin.requestNotificationsPermission();
     }
 
+    // 5. Listener saat aplikasi sedang DIBUKA
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final title = message.notification?.title ?? message.data['title'] ?? 'Pesanan Baru';
       final body = message.notification?.body ?? message.data['body'] ?? '';
       _showInstant(title, body, message);
     });
 
+    // 6. Setel Background Handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+    // 7. Sinkronisasi Token FCM ke Database (Penting!)
     await _syncToken();
+    _fcm.onTokenRefresh.listen((newToken) async {
+      await _sendTokenToServer(newToken);
+    });
   }
 
+  // Fungsi memicu popup (Heads-up) instan di foreground
   void _showInstant(String title, String body, RemoteMessage message) {
     final type = message.data['notification_type'] ?? 'order';
     final soundFile = (type == 'order') ? 'notif_order_alert' : 'notif_chime';
@@ -142,32 +126,7 @@ class NotificationService {
   }
 
   /// ──────────────────────────────────────────────────────────
-  /// FUNGSI UNTUK BUILD (Satisfy notification_settings_page.dart)
-  /// ──────────────────────────────────────────────────────────
-  Future<String> getSoundForCategory(String category) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('notif_sound_$category') ?? kDefaultSounds[category] ?? 'order_alert';
-  }
-
-  Future<void> setSoundForCategory(String category, String soundKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('notif_sound_$category', soundKey);
-  }
-
-  // Fungsi previewSound yang hilang tadi sudah saya kembalikan
-  Future<void> previewSound(String soundKey) async {
-    if (soundKey == 'silent') return;
-    try {
-      final player = AudioPlayer();
-      await player.play(AssetSource('../res/raw/notif_$soundKey.mp3'));
-      player.onPlayerComplete.listen((_) => player.dispose());
-    } catch (e) {
-      debugPrint('Preview error: $e');
-    }
-  }
-
-  /// ──────────────────────────────────────────────────────────
-  /// LOGIKA TOKEN SYNC
+  /// LOGIKA TOKEN SYNC (Pelaporan Alamat HP ke Server)
   /// ──────────────────────────────────────────────────────────
   Future<void> _syncToken() async {
     try {
@@ -182,8 +141,9 @@ class NotificationService {
     try {
       final repo = di.sl<AuthRepository>();
       await repo.updateFcmToken(token);
+      debugPrint('FCM: Token updated on server');
     } catch (e) {
-      debugPrint('FCM Server sync failed: $e');
+      debugPrint('FCM: Server sync failed: $e');
     }
   }
 
