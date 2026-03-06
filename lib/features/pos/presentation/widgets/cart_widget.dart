@@ -25,7 +25,6 @@ class CartWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA),
         borderRadius: isTablet ? null : const BorderRadius.vertical(top: Radius.circular(32)),
-        // specific border/shadow for tablet if needed
         border: isTablet ? const Border(left: BorderSide(color: Colors.black12)) : null,
       ),
       child: Column(
@@ -46,7 +45,7 @@ class CartWidget extends StatelessWidget {
 
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: isTablet ? 12 : 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -57,7 +56,6 @@ class CartWidget extends StatelessWidget {
                      icon: const Icon(Icons.close, color: Colors.grey),
                    ),
                 if (isTablet)
-                   // Tablet: Maybe a "Clear All" button?
                    TextButton(
                      onPressed: () {
                         context.read<PosBloc>().add(ClearCart());
@@ -86,8 +84,8 @@ class CartWidget extends StatelessWidget {
                 }
 
                 return ListView.builder(
-                  controller: scrollController, // Use provided controller for DraggableScrollableSheet
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  controller: scrollController,
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: isTablet ? 0 : 8),
                   itemCount: state.cartItems.length,
                   itemBuilder: (context, index) {
                     final item = state.cartItems[index];
@@ -139,49 +137,66 @@ class CartWidget extends StatelessWidget {
     final product = item.product;
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
+    // Tight Padding for Tablet
+    final verticalPadding = isTablet ? 4.0 : 8.0;
+    final bottomMargin = isTablet ? 6.0 : 12.0;
+    final borderRadius = isTablet ? 12.0 : 20.0;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(8),
+      margin: EdgeInsets.only(bottom: bottomMargin),
+      padding: EdgeInsets.all(verticalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
         children: [
-          // Image
-          Container(
-            height: 56, width: 56,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(16),
+          // Conditional Image: Only show if NOT tablet
+          if (!isTablet) ...[
+            Container(
+              height: 56, width: 56,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: product.image != null && product.image!.isNotEmpty
+                  ? ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(product.image!, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.inventory_2, color: Colors.grey)),
+                  )
+                  : const Icon(Icons.inventory_2, color: Colors.grey),
             ),
-            child: product.image != null && product.image!.isNotEmpty
-                ? ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(product.image!, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.inventory_2, color: Colors.grey)),
-                )
-                : const Icon(Icons.inventory_2, color: Colors.grey),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
+          ],
+          
+          if (isTablet) const SizedBox(width: 8),
 
           // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
                 Text(
-                  'Item',
-                  style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  product.name, 
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: isTablet ? 13 : 16), 
+                  maxLines: 1, 
+                  overflow: TextOverflow.ellipsis
                 ),
-                const SizedBox(height: 4),
+                if (!isTablet) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Item',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                  ),
+                ],
+                if (isTablet) const SizedBox(height: 2),
                 Text(
                   currencyFormatter.format(product.sellingPrice),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: isTablet ? 12 : 14, color: Colors.grey[800]),
                 ),
               ],
             ),
@@ -189,7 +204,7 @@ class CartWidget extends StatelessWidget {
 
           // Qty Control
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: isTablet ? 4 : 8, vertical: isTablet ? 2 : 4),
             decoration: BoxDecoration(
               color: const Color(0xFFF8F9FA),
               borderRadius: BorderRadius.circular(12),
@@ -203,12 +218,12 @@ class CartWidget extends StatelessWidget {
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: Icon(Icons.remove, size: 20, color: Colors.grey[600]),
+                    child: Icon(Icons.remove, size: isTablet ? 16 : 20, color: Colors.grey[600]),
                   ),
                 ),
                 SizedBox(
-                  width: 24,
-                  child: Text('${item.quantity}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  width: isTablet ? 20 : 24,
+                  child: Text('${item.quantity}', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: isTablet ? 13 : 16)),
                 ),
                 InkWell(
                   onTap: () {
@@ -224,7 +239,7 @@ class CartWidget extends StatelessWidget {
                          BoxShadow(color: const Color(0xFF1B9C5E).withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))
                       ]
                     ),
-                    child: const Icon(Icons.add, size: 18, color: Colors.white),
+                    child: Icon(Icons.add, size: isTablet ? 14 : 18, color: Colors.white),
                   ),
                 ),
               ],
@@ -240,8 +255,7 @@ class CartWidget extends StatelessWidget {
       builder: (context, state) {
         final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-        // Fetch settings from AuthBloc
-        double taxRate = 0.11; // Default 11%
+        double taxRate = 0.11; 
         double discountRate = 0.0;
         
         final authState = context.read<AuthBloc>().state;
@@ -265,8 +279,28 @@ class CartWidget extends StatelessWidget {
         final tax = taxableAmount * taxRate;
         final grandTotal = (taxableAmount + tax).roundToDouble();
 
+        // Ultra Slim Styles for Tablet
+        final labelStyle = TextStyle(color: Colors.grey[600], fontSize: isTablet ? 11 : 15);
+        final valueStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: isTablet ? 11 : 15);
+        final footerPadding = isTablet ? 12.0 : 16.0;
+
+        // Tablet Detail Row Widget (Reusable)
+        Widget buildTabletDetailRow(String label, double amount, {bool isDiscount = false}) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: labelStyle.copyWith(color: isDiscount ? const Color(0xFF1B9C5E) : null)),
+              const SizedBox(width: 4),
+              Text(
+                currencyFormatter.format(amount),
+                style: valueStyle.copyWith(color: isDiscount ? const Color(0xFF1B9C5E) : null),
+              ),
+            ],
+          );
+        }
+
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(footerPadding),
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
@@ -277,55 +311,85 @@ class CartWidget extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Details
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Subtotal', style: TextStyle(color: Colors.grey[500], fontSize: 15)),
-                  Text(currencyFormatter.format(subtotal), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (discountRate > 0)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.local_offer, size: 16, color: Color(0xFF1B9C5E)),
-                      const SizedBox(width: 4),
-                      Text('Discount (${(discountRate * 100).toInt()}%)', style: const TextStyle(color: Color(0xFF1B9C5E), fontSize: 15)),
+              if (isTablet)
+                // Tablet Mode: Single Row
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    buildTabletDetailRow('Sub:', subtotal),
+                    if (discountRate > 0) ...[
+                      Text('|', style: TextStyle(color: Colors.grey[300], fontSize: 10)),
+                      buildTabletDetailRow('Disc:', discountAmount, isDiscount: true),
                     ],
-                  ),
-                  Text('- ${currencyFormatter.format(discountAmount)}', style: const TextStyle(color: Color(0xFF1B9C5E), fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Tax (${(taxRate * 100).toInt()}%)', style: TextStyle(color: Colors.grey[500], fontSize: 15)),
-                  Text(currencyFormatter.format(tax), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
-              ),
+                    if (taxRate > 0) ...[
+                      Text('|', style: TextStyle(color: Colors.grey[300], fontSize: 10)),
+                      buildTabletDetailRow('Tax:', tax),
+                    ],
+                  ],
+                )
+              else
+                // Mobile Mode: Vertical Stack
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Subtotal', style: labelStyle),
+                        Text(currencyFormatter.format(subtotal), style: valueStyle),
+                      ],
+                    ),
+                    if (discountRate > 0) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.local_offer, size: 16, color: Color(0xFF1B9C5E)),
+                              const SizedBox(width: 4),
+                              Text('Discount (${(discountRate * 100).toInt()}%)', style: labelStyle.copyWith(color: const Color(0xFF1B9C5E))),
+                            ],
+                          ),
+                          Text('- ${currencyFormatter.format(discountAmount)}', style: valueStyle.copyWith(color: const Color(0xFF1B9C5E))),
+                        ],
+                      ),
+                    ],
+                    if (taxRate > 0) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Tax (${(taxRate * 100).toInt()}%)', style: labelStyle),
+                          Text(currencyFormatter.format(tax), style: valueStyle),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
 
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20.0),
-                child: Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)), 
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: isTablet ? 4.0 : 20.0),
+                child: Divider(height: 1, thickness: 1, color: const Color(0xFFEEEEEE)), 
               ),
 
               // Grand Total
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('GRAND TOTAL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[400], letterSpacing: 1.5)),
+                  Text('GRAND TOTAL', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[400], letterSpacing: 1.5)),
                   Text(
                     currencyFormatter.format(grandTotal),
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF2D3436)),
+                    style: TextStyle(fontSize: isTablet ? 20 : 28, fontWeight: FontWeight.w900, color: const Color(0xFF2D3436)),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 16),
+              // Removed SizedBox for Tablet
+              if (!isTablet) const SizedBox(height: 16),
+              if (isTablet) const SizedBox(height: 8), // Minimal spacing
               
               // Pay Button
               SizedBox(
@@ -333,22 +397,22 @@ class CartWidget extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: state.cartItems.isEmpty ? null : () {
                      if (onCheckout != null) {
-                        onCheckout!(grandTotal); // Trigger checkout
+                        onCheckout!(grandTotal);
                      }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1B9C5E),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(vertical: isTablet ? 12 : 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 10,
+                    elevation: isTablet ? 2 : 10,
                     shadowColor: const Color(0xFF1B9C5E).withOpacity(0.4),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                       Text('Checkout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                       SizedBox(width: 8),
-                       Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20)
+                       Text('Checkout', style: TextStyle(fontSize: isTablet ? 14 : 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                       const SizedBox(width: 8),
+                       Icon(Icons.arrow_forward_rounded, color: Colors.white, size: isTablet ? 18 : 20)
                     ],
                   ),
                 ),
