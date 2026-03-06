@@ -18,7 +18,6 @@ import 'package:mobile_app/features/transaction/data/repositories/transaction_re
 import 'package:mobile_app/core/services/shift_service.dart';
 import 'package:mobile_app/features/pos/presentation/widgets/shift_dialog.dart';
 import 'package:mobile_app/features/table/presentation/pages/table_management_page.dart';
-import 'package:mobile_app/features/settings/presentation/pages/notification_settings_page.dart';
 
 
 class OthersPage extends StatelessWidget {
