@@ -89,19 +89,23 @@ class _AppStarterState extends State<AppStarter> {
     // 5. Locale
     await initializeDateFormatting('id_ID', null);
 
-    // 6. Firebase & Notifications
+    // 6. Firebase (Notifications initialized LATER)
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      await NotificationService().initialize();
     } catch (e) {
-      debugPrint("Firebase/Notification initialization failed: $e");
+      debugPrint("Firebase initialization failed: $e");
     }
 
     if (mounted) {
       setState(() {
         _isInitialized = true;
+      });
+      
+      // 7. Initialize Notifications AFTER UI is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+         await NotificationService().initialize();
       });
     }
   }
