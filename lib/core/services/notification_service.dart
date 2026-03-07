@@ -100,9 +100,14 @@ class NotificationService {
   void _showInAppBanner(String title, String body, String type) {
     // Add small delay to ensure context is ready
     Future.delayed(const Duration(milliseconds: 500), () {
-        if (navigatorKey.currentContext == null) return;
+        print("DEBUG: Menyiapkan Banner In-App untuk: $title");
 
-        final overlay = Overlay.of(navigatorKey.currentContext!);
+        final overlayState = navigatorKey.currentState?.overlay;
+        if (overlayState == null) {
+          print("DEBUG ERROR: Overlay State TIDAK DITEMUKAN!");
+          return;
+        }
+
         final overlayEntry = OverlayEntry(
           builder: (context) => Positioned(
             top: MediaQuery.of(context).padding.top + 10,
@@ -178,7 +183,8 @@ class NotificationService {
           ),
         );
 
-        overlay.insert(overlayEntry);
+        overlayState.insert(overlayEntry);
+        print("DEBUG SUCCESS: Banner Berhasil Muncul di Layar!");
 
         // Auto-dismiss after 5 seconds
         Future.delayed(const Duration(seconds: 5), () {
