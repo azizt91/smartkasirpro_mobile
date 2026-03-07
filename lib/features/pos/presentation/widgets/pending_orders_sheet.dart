@@ -29,6 +29,7 @@ class _PendingOrdersSheetState extends State<PendingOrdersSheet> {
       SnackBar(
         content: Text('Pesanan ${order['transaction_code']} dimasukkan ke keranjang'),
         backgroundColor: const Color(0xFF1B9C5E),
+        duration: const Duration(seconds: 1),
       ),
     );
   }
