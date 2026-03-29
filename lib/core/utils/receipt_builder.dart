@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_app/core/services/printer_service.dart';
 import 'package:mobile_app/injection_container.dart';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
+import 'package:image/image.dart' as img;
 
 class ReceiptBuilder {
   final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
@@ -45,6 +48,53 @@ class ReceiptBuilder {
       // 0: Left, 1: Center, 2: Right
       // 0: Normal, 1: Bold, 2: Medium, 3: Large
       
+      // --- LOGO ---
+      final storeLogo = settings['store_logo'];
+      if (storeLogo != null && storeLogo.toString().isNotEmpty) {
+        try {
+          final dio = sl<Dio>();
+          final userBaseUrl = dio.options.baseUrl.replaceAll('/api', '');
+          String path = storeLogo.toString();
+          if (!path.startsWith('/')) path = '/$path';
+          if (!path.contains('/storage')) path = '/storage$path';
+          final url = '$userBaseUrl$path';
+
+          final response = await dio.get(
+            url,
+            options: Options(
+              responseType: ResponseType.bytes, 
+              receiveTimeout: const Duration(seconds: 10)
+            ),
+          );
+          
+          if (response.statusCode == 200) {
+            final Uint8List bytes = Uint8List.fromList(response.data);
+            img.Image? originalImage = img.decodeImage(bytes);
+            
+            if (originalImage != null) {
+              // Handle transparency: fill transparent pixels with white
+              img.Image processedImage = img.Image(width: originalImage.width, height: originalImage.height);
+              img.fill(processedImage, color: img.ColorRgb8(255, 255, 255)); 
+              img.compositeImage(processedImage, originalImage);
+
+              // Resize: max 384px width for 58mm printer
+              if (processedImage.width > 384) {
+                processedImage = img.copyResize(processedImage, width: 384);
+              }
+
+              // Encode to JPG format to remove alpha channel safely for printer
+              final Uint8List printableBytes = img.encodeJpg(processedImage, quality: 100);
+
+              await bluetooth.printCustom("", 1, 1); // center alignment trick
+              await bluetooth.printImageBytes(printableBytes);
+              await bluetooth.printNewLine();
+            }
+          }
+        } catch (e) {
+          print('Failed to print logo: $e');
+        }
+      }
+
       // Header
       await bluetooth.printCustom(settings['store_name'] ?? 'Minimarket POS', 3, 1);
       await bluetooth.printCustom(settings['store_address'] ?? '-', 0, 1);
